@@ -124,16 +124,32 @@ int isFileOK(char*filename,char*path,struct search_t* properties){
     int type_status=1;
     int permission_status=1;
     int link_status=1;
-    struct stat
+    struct stat stBuf;
+
+    if(stat(path,&stBuf) == -1){
+        fprintf(stderr,"IsFileOk Function. Stat buffer could not be created. Error Code :%d\n",errno);
+        exit(-1);
+    }
+
     if(strcmp(properties->filename," ")!=0){
         filename_status=filename_checker(filename,properties->filename);
     }
 
-    if(properties->size," ")!=0){
-        filename_status=filename_checker(filename,properties->filename);
+    if(properties->size!=-1){
+        size_status=size_checker(stBuf.size,properties->size);
     }
 
+    if(properties->type !=' '){
+        type_status = type_checker(stBuf.st_mode,properties->type);
+    }
 
+    if(strcmp(properties->permissions," ")!=0){
+        permission_status = permission_checker(stBuf.st_mode,properties->permissions);
+    }
+    
+    if(properties->link_count!=-1){
+        link_status=link_count_checker(stBuf.st_nlink,properties->link_count);
+    }
 
     return (filename_status && size_status && type_status && permission_status && link_status);
 }
