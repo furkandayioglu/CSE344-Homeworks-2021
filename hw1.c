@@ -22,8 +22,8 @@ void print_usage();
 /* file control functions */ 
 int filename_checker(char*filename,char*regex);
 int size_checker(int filesize,int expected_size);
-int type_checker(char type, char expected_type);
-int permission_checker(char* permissions,char*expected_permissions);
+int type_checker(mode_t type, char expected_type);
+int permission_checker(mode_t permissions,char*expected_permissions);
 int link_count_checker(int link_count,int expected_link_count);
 int isFileOK();
 
@@ -43,11 +43,12 @@ int main(int argc,char**argv){
     int opt;
     char* path = NULL;
     int wFlag_status =-1;
-    file.filename = NULL;
+
+    file.filename = " ";
     file.size=-1;
     file.type=' ';
     file.link_count=-1;
-    file.permissions=NULL;
+    file.permissions= " ";
 
     if(argc < 5){
         
@@ -98,7 +99,7 @@ int main(int argc,char**argv){
         exit(-1);
     }
 
-
+  
     return 0;
 }
 
@@ -123,8 +124,18 @@ int isFileOK(char*filename,char*path,struct search_t* properties){
     int type_status=1;
     int permission_status=1;
     int link_status=1;
+    struct stat
+    if(strcmp(properties->filename," ")!=0){
+        filename_status=filename_checker(filename,properties->filename);
+    }
 
-    if(properties->filename != NULL)
+    if(properties->size," ")!=0){
+        filename_status=filename_checker(filename,properties->filename);
+    }
+
+
+
+    return (filename_status && size_status && type_status && permission_status && link_status);
 }
 
 int filename_checker(char*filename,char*regex){
@@ -209,7 +220,7 @@ int permission_checker(mode_t permission,char*expected_permissions){
     permission_str[2]= permission & S_IXUSR ? 'x' : '-';
 
     permission_str[9]='\0';
-    if(strcmp(permission_str,expected_permission) == 0){
+    if(strcmp(permission_str,expected_permissions) == 0){
         status=1;
     }
 
