@@ -7,6 +7,7 @@
 *.d
 bunedu.c
 plus_count.c
+output.txt
 
 # Object files
 *.o

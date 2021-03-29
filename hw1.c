@@ -117,6 +117,7 @@ void print_usage(){
     fprintf(stderr,"-l link count\n");
 
 }
+
 int isFileOK(char*filename,char*path,struct search_t* properties){
 
     int filename_status = 1;
@@ -259,4 +260,50 @@ void print_file(char*path,int level,int count){
 
 }
 
-int directory_traversal(char*path,struct search_t* file);
+int directory_traversal(char*path,struct search_t* file){
+    DIR *dp;
+    struct dirent *dir;
+    struct stat sfBuf;
+    int level=0;
+    
+
+    dp = opendir(path);
+
+    if(dp){
+        while((dir = readdir(dp)) != NULL){
+          char* tPath;      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        }
+
+   }else{
+        perror("Directory Could not be opened.\n");
+        perror("ABORT PROGRAM \n");
+        exit(1);
+
+    }
+
+
+
+
+
+
+
+
+
+
+}
