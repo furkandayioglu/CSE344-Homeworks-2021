@@ -329,7 +329,7 @@ void print_file(char*path,int level,int count){
             for(j=0;j<=i-level;j++){
                 fprintf(stderr,"--");
             }
-             fprintf(stderr,"%s\n",path_levels[i]);
+             fprintf(stderr,"%s\n|",path_levels[i]);
         }
     }else{
         for(j=0;j<level;j++){
