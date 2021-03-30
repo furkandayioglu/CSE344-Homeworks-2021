@@ -9,6 +9,9 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <signal.h>
+
+
 
 struct search_t{
     char* filename;
@@ -38,12 +41,38 @@ void print_file(char*path,int level,int count);
 int directory_traversal(char*path,struct search_t* file, int level);
 
 
+
+void signal_handler(int signo){
+    switch (signo)
+    {
+    case SIGINT:
+        fprintf(stderr,"Signal has occured\nAborting\n");
+        exit(-1);
+        break;
+    
+    default:
+        break;
+    }
+
+}   
+
+
+
+
 int main(int argc,char**argv){
 
     struct search_t file;
     int opt;
     char* path = NULL;
     int wFlag_status =-1;
+    int found_status = 0;
+    struct sigaction sa;
+
+    memset(&sa,0,sizeof(sa));
+    sa.sa_handler=&signal_handler;
+
+    sigaction(SIGINT,&sa,NULL);
+    
 
     file.filename = " ";
     file.size=-1;
@@ -100,7 +129,11 @@ int main(int argc,char**argv){
         exit(-1);
     }
 
-  
+    found_status = directory_traversal(path, &file, 0);
+    
+    if(found_status == 0){
+        fprintf(stderr,"No File Found \n");
+    }
     return 0;
 }
 
@@ -129,7 +162,8 @@ int isFileOK(char*filename,char*path,struct search_t* properties){
     struct stat stBuf;
 
     if(stat(path,&stBuf) == -1){
-        fprintf(stderr,"IsFileOk Function. Stat buffer could not be created. Error Code :%d\n",errno);
+        fprintf(stderr,"IsFileOk Function. Stat buffer could not be created. Error Code :%d\nPath: %s\n",errno,filename);
+        perror("IsFileOK\n");
         exit(-1);
     }
 
@@ -138,7 +172,7 @@ int isFileOK(char*filename,char*path,struct search_t* properties){
     }
 
     if(properties->size!=-1){
-        size_status=size_checker(stBuf.size,properties->size);
+        size_status=size_checker(stBuf.st_size,properties->size);
     }
 
     if(properties->type !=' '){
@@ -258,7 +292,7 @@ int link_count_checker(int link_count,int expected_link_count){
 int path_level_count(char*path){
     int i=0;
     int count=0;
-    for(i=0;i<strlen(path),i++){
+    for(i=0;i<strlen(path);i++){
         if(path[i]=='/')
             count++;
     }
@@ -270,18 +304,27 @@ void print_file(char*path,int level,int count){
     int i=0, j=0;
     
     char* path_token;
-    char* saveptr = path;
+    char* saveptr = (char*)malloc(sizeof(char)*strlen(path)+1);
     char** path_levels;
     int level_path = path_level_count(path);
+    char* strtokptr= NULL;
+
     path_levels = (char**)malloc(sizeof(char*)*level_path);
 
-    while((path_token = strtok_r(saveptr,"/",&saveptr))){
+    strcpy(saveptr,path);
+
+    path_token = strtok_r(saveptr,"/",&strtokptr);
+    path_levels[i] = path_token;
+    i++;
+
+    while((path_token = strtok_r(NULL,"/",&strtokptr))){
         path_levels[i] = path_token;
         i++;
     }
   
+    
     if(count==1){
-        for(i=level_path-level-1;i<level_path;i++){
+        for(i=level_path-level-1;i<level_path-1;i++){
             
             for(j=0;j<=i-level;j++){
                 fprintf(stderr,"--");
@@ -294,7 +337,8 @@ void print_file(char*path,int level,int count){
         }
         fprintf(stderr,"%s\n",path_levels[level_path-1]);
     }
-
+    fflush(stderr);
+    free(saveptr);
     free(path_levels);
     
 }
@@ -307,7 +351,7 @@ int directory_traversal(char*path,struct search_t* file,int level){
     int level_count=0;
 
     dp = opendir(path);
-    
+    level++;
     if(dp){
         while((dir = readdir(dp)) != NULL){
             char* tPath = (char*) malloc(sizeof(char)*PATH_MAX);    
@@ -315,44 +359,45 @@ int directory_traversal(char*path,struct search_t* file,int level){
                 strcpy(tPath,path);
                 strcat(tPath,"/");
                 strcat(tPath,dir->d_name);
-
-                if(stat(tempPath,&stBuf)==-1){
+                /*fprintf(stderr,"Filepath : %s\n",tPath);
+                fprintf(stderr,"Filename (dir->d_name) : %s\n",dir->d_name);*/
+                if(stat(tPath,&stBuf)==-1){
                     fprintf(stderr,"File stat buffer could not be created: %d\n",errno);
                     exit(-1);
                 }
 
                 if(S_ISDIR(stBuf.st_mode)){
+                    /*fprintf(stderr,"DIR:Filepath : %s\n",tPath);
+                    fprintf(stderr,"DIR:Filename (dir->d_name) : %s\n",dir->d_name);*/
                     if(isFileOK(dir->d_name,tPath,file) == 1){
                         count++;
                         level_count++;
                         print_file(tPath,level,level_count);
                     }
-                    count+=directory_traversal(tPath,file,level++);      
+                    count+=directory_traversal(tPath,file,level);      
                 }else{
+                    /*fprintf(stderr,"ELSE:Filepath : %s\n",tPath);
+                    fprintf(stderr,"ELSE:Filename (dir->d_name) : %s\n",dir->d_name);*/
                     if(isFileOK(dir->d_name,tPath,file) == 1){
                         count++;
                         level_count++;
-                        print_file(tPath,level,level_count);
+                        print_file(tPath,level,count);
                     }
                 }
             }else{
-                if(isFileOK(dir->d_name,tPath,file) == 1){
-                    count++;
-                    level_count++;
-                    print_file(tPath,level,level_count);
-                }
 
-            }  
+            }
           free(tPath);
+          
         }
-
+        while((closedir(dp) == 0) && (errno == EINTR));
    }else{
         perror("Directory Could not be opened.\n");
         perror("ABORT PROGRAM \n");
         exit(-1);
 
     }
-
+    
 
 return count;
 }
