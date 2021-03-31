@@ -29,7 +29,7 @@ int size_checker(int filesize,int expected_size);
 int type_checker(mode_t type, char expected_type);
 int permission_checker(mode_t permissions,char*expected_permissions);
 int link_count_checker(int link_count,int expected_link_count);
-int isFileOK();
+int isFileOK(char*filename,char*path,struct search_t* properties);
 
 /* helper functions */
 int path_level_count(char*path);
@@ -67,6 +67,7 @@ int main(int argc,char**argv){
     int wFlag_status =-1;
     int found_status = 0;
     struct sigaction sa;
+  
 
     memset(&sa,0,sizeof(sa));
     sa.sa_handler=&signal_handler;
@@ -129,6 +130,9 @@ int main(int argc,char**argv){
         exit(-1);
     }
 
+    if(path[strlen(path)-1]=='/'){
+        path[strlen(path)-1] = '\0';
+    }
     found_status = directory_traversal(path, &file, 0);
     
     if(found_status == 0){
@@ -325,18 +329,21 @@ void print_file(char*path,int level,int count){
     
     if(count==1){
         for(i=level_path-level-1;i<level_path-1;i++){
-            
+            fprintf(stderr,"| ");
             for(j=0;j<=i-level;j++){
                 fprintf(stderr,"--");
             }
-             fprintf(stderr,"%s\n|",path_levels[i]);
+             fprintf(stderr,"%s\n",path_levels[i]);
         }
     }else{
+        fprintf(stderr,"| ");
         for(j=0;j<level;j++){
             fprintf(stderr,"--");
         }
         fprintf(stderr,"%s\n",path_levels[level_path-1]);
     }
+
+
     fflush(stderr);
     free(saveptr);
     free(path_levels);
@@ -359,25 +366,22 @@ int directory_traversal(char*path,struct search_t* file,int level){
                 strcpy(tPath,path);
                 strcat(tPath,"/");
                 strcat(tPath,dir->d_name);
-                /*fprintf(stderr,"Filepath : %s\n",tPath);
-                fprintf(stderr,"Filename (dir->d_name) : %s\n",dir->d_name);*/
+                
                 if(stat(tPath,&stBuf)==-1){
                     fprintf(stderr,"File stat buffer could not be created: %d\n",errno);
                     exit(-1);
                 }
 
                 if(S_ISDIR(stBuf.st_mode)){
-                    /*fprintf(stderr,"DIR:Filepath : %s\n",tPath);
-                    fprintf(stderr,"DIR:Filename (dir->d_name) : %s\n",dir->d_name);*/
+                   
                     if(isFileOK(dir->d_name,tPath,file) == 1){
                         count++;
                         level_count++;
-                        print_file(tPath,level,level_count);
+                        print_file(tPath,level,count);
                     }
                     count+=directory_traversal(tPath,file,level);      
                 }else{
-                    /*fprintf(stderr,"ELSE:Filepath : %s\n",tPath);
-                    fprintf(stderr,"ELSE:Filename (dir->d_name) : %s\n",dir->d_name);*/
+                    
                     if(isFileOK(dir->d_name,tPath,file) == 1){
                         count++;
                         level_count++;
