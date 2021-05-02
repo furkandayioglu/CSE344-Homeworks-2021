@@ -18,6 +18,9 @@ typedef struct syncronizer_t{
     sem_t vac2_count;
     atomic_int total_vax;
 
+    atomic_int finished_vax;
+    atomic_int citizen_count;
+
     /*semaphore for buffer */
     sem_t buffer_full;
     sem_t buffer_empty;
@@ -32,7 +35,7 @@ typedef struct syncronizer_t{
 static struct syncronize_t* sync;
 
 
-void init_sync(int b){
+void init_sync(int b,int c){
 
     if(sem_init(&sync->vac1_count,1,0)<0){
         fprintf(stderr,"Vaccine 1 counter sem could not be initialized\n")
@@ -70,8 +73,8 @@ void init_sync(int b){
     }
 
     sync->total_vax=0;
-    
-
+    sync->finished_vax=0;
+    sync->citizen_count=c;
 }
 
 
@@ -179,14 +182,18 @@ int semvalue(sem_t* sem){
 
 void get_vacc_storage(int i, int pid, int type){
     char message[200];
-
+    
     semwait(&sync->buffer_full);
     semwait(&sync->storage_mutex);
 
+
+    sprintf(message,"Vaccinator %d (pid= %d) inviting a citizen for vaccine %d\n",i+1,pid,type)
     if(type==1){
        semwait(&sync->vac1_count); 
+       write(STDERR_FILENO,message,strlen(message));
     }else{
-       semwait(&sync->vac1_count); 
+       semwait(&sync->vac2_count); 
+       write(STDERR_FILENO,message,strlen(message));
     }
 
     --sync->total_vax;
@@ -196,8 +203,8 @@ void get_vacc_storage(int i, int pid, int type){
 }
 
 
-void vaccinate_dose1_citizen(int i,int pid);
-void vaccinate_dose2_citizen(int i,int pid, int t);
+/*void vaccinate_dose1_citizen(int i,int pid);
+void vaccinate_dose2_citizen(int i,int pid, int t);*/
 
 void add_vax1(int i, int pid){
     char message[200];
@@ -234,10 +241,6 @@ void add_vax2(int i, int pid){
 
 
 
-
-
-
-
 void nurse(int i,int fd,int t, int c, int buffer_size){
     char message[200];
     /*int filesize = 2*t*c;*/
@@ -251,11 +254,9 @@ void nurse(int i,int fd,int t, int c, int buffer_size){
     }
     while(size>0){
         
-        if(vax == '1'){
-            
+        if(vax == '1'){            
             /*vax1 to storage*/
             add_vax1(i,getpid());
-
         }
         
         if(vax=='2'){
@@ -278,9 +279,100 @@ void nurse(int i,int fd,int t, int c, int buffer_size){
 }
 
 
-void vaccinator(int i,int t, int c, int buffer_size);
+void vaccinator(int i,int t, int c, int buffer_size){
+    char message[200];
+    int j=0;
+     
+    sigset_t invitation1,invitation2;
 
-void citizen(int i,int t,int c);
+    sigemptyset(&invitation1);
+    sigaddset(&invitation, SIGUSR1);
+
+    sigemptyset(&invitation2);
+    sigaddset(&invitation, SIGUSR2);
+
+    while(1){       
+
+        if(semvalue(&sync->vac1_counter)>0){            
+            get_vacc_storage(i,getpid(),1);
+            ++j;
+            kill(-1,SIGUSR1);      
+        }    
+
+
+        sigsuspend(&invitation2);
+        if(semvalue(&sync->vac2_counter)>0){
+            get_vacc_storage(i,getpid(),2);
+            ++j;
+            kill(-1,SIGUSR2);
+        }       
+
+        if(sync->citizen_count==0){
+            sprintf(message,"Vaccinator %d (pid=%d) completely vaccinated. Vacctinated %d times \n",i+1,getpid(),j);
+            if(write(STDERR_FILENO,message,strlen(message))<0){
+                fprintf(stderr,"Message could not be printed\n");
+            }
+            break;
+        }
+    }
+
+}
+
+void citizen(int i,int t,int c){
+
+    char message[200];
+    int j=0;
+    int dose_count=0;    
+    sigset_t invitation1,invitation2;
+
+    sigemptyset(&invitation1);
+    sigaddset(&invitation, SIGUSR1);
+
+    sigemptyset(&invitation2);
+    sigaddset(&invitation, SIGUSR2);
+
+    while(1){
+
+        sigsuspend(&invitation1);
+
+        if(semvalue(&sync->vac1_counter)>0){
+
+            semwait(&sync->vac1_mutex);
+            ++j;
+            sprintf(message,"Citizen %d (pid=%d) vaccinated %d time/s: Clinic has %d vaccine1 %d vaccine2.\n",i+1,getpid(),j,semvalue(&sync->vac1_count),semvalue(&sync->vac2_count));
+            write(STDERR_FILENO,message,strlen(message));
+            sempost(&sync->vac1_mutex);
+
+        }    
+
+
+        sigsuspend(&invitation2);
+
+        if(semvalue(&sync->vac2_counter)>0){
+
+            semwait(&sync->vac2_mutex);
+            ++j;
+            sprintf(message,"Citizen %d (pid=%d) vaccinated %d time/s: Clinic has %d vaccine1 %d vaccine2.\n",i+1,getpid(),j,semvalue(&sync->vac1_count),semvalue(&sync->vac2_count));
+            write(STDERR_FILENO,message,strlen(message));
+            sempost(&sync->vac2_mutex);
+
+        }  
+
+        ++dose_count;
+
+        if(dose_count == t){
+            --sync->citizen_count;
+            sprintf(message,"Citizen %d (pid=%d) completely vaccinated. %d citizens left \n",sync->citizen_count);
+            if(write(STDERR_FILENO,message,strlen(message))<0){
+                fprintf(stderr,"Message could not be printed\n");
+            }
+            break;
+        }
+
+
+    }
+
+}
 
 
 void sig_handler(int signum){
@@ -309,6 +401,8 @@ void sig_handler(int signum){
     
     }else if(signum== SIGUSR1){
 
+    }else if(signum== SIGUSR2){
+
     }
 }
 
@@ -320,12 +414,14 @@ int main(int argc, char** argv){
     int nurse,vaccinator,citizen,dose,buffer_size;
     struct sigaction sact;
     int input_fd, shm_fd;
-    int i=0;
+    int i=0,stat;
+ 
 
     sigemptyset(&sact.sa_mask); 
     sact.sa_flags = SA_RESTART;
     sact.sa_handler = sig_handler;
 
+    
 
     /* sigaction for SIGINT */
     if (sigaction(SIGINT, &sact, NULL) != 0){
@@ -335,6 +431,12 @@ int main(int argc, char** argv){
 
     /* sigaction for SIGINT */
     if (sigaction(SIGUSR1, &sact, NULL) != 0){
+        fprintf(stderr,"SIGUSR1 ould not be added sigaction()\n");
+        exit(-1);
+    }
+
+    /* sigaction for SIGINT */
+    if (sigaction(SIGUSR2, &sact, NULL) != 0){
         fprintf(stderr,"SIGUSR1 ould not be added sigaction()\n");
         exit(-1);
     }
@@ -399,6 +501,7 @@ int main(int argc, char** argv){
         exit(-1);
     }
 
+   
     input_fd = open(inputfilePath,O_RDONLY);
     if(input_fd < 0){
         fprintf(stderr,"Input file could not be opened\n");
@@ -425,7 +528,7 @@ int main(int argc, char** argv){
 
     /* TODO Initialize semaphores */
 
-    init_sync(buffer_size);
+    init_sync(buffer_size,citizen);
 
     fprintf(stderr,"Welcome to the CSE344 clinic. Number of citizen to vaccinate c=%d with t=%d doses.\n",c,t);
 
@@ -439,7 +542,7 @@ int main(int argc, char** argv){
                 break;
             case 0:
                 nurse(i,input_fd,dose,citizen,buffer_size);
-                exit(EXIT_SUCCESS);
+                exit(0);
             default:
                 break;
         }
@@ -455,7 +558,7 @@ int main(int argc, char** argv){
                 break;
             case 0:
                 citizen(i,dose,citizen);
-                exit(EXIT_SUCCESS);
+                exit(0);
             default:
                 break;
         }
@@ -465,7 +568,7 @@ int main(int argc, char** argv){
 
 
 
-    for(i=0;i<citizen;i++){
+    for(i=0;i<vaccinator;i++){
         switch (fork())
         {
             case -1:
@@ -474,13 +577,22 @@ int main(int argc, char** argv){
                 break;
             case 0:
                 vacctinator(i,dose,citizen,buffer_size);
-                exit(-1);
+                exit(0);
             default:
                 break;
         }
 
     }
 
+
+    for(i=0;i<nurse+vaccinator+citizen;++i){
+        char message[50];
+        sprintf(print_string,"Process (PID=%d) waited.\n",waitpid(-1,&stat,0));
+        if(write(STDOUT_FILENO,print_string,strlen(print_string))<0){
+            fprintf(stderr,"Error message could not be printed.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
 
     destroy_sync();
 
