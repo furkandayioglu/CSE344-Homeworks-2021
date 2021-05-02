@@ -13,30 +13,109 @@
 #include <string.h>
 
 typedef struct syncronizer_t{
-    atomic_int* buffer;
-    atomic_int file_offset;
-    atomic_int vac1_count;
-    atomic_int vac2_count;
+    /*atomic_int* buffer;*/
+    /*atomic_int file_offset;*/
+    sem_t vac1_count;
+    sem_t vac2_count;
     atomic_int total_vax;
+
     /*semaphore for buffer */
     sem_t buffer_full;
     sem_t buffer_empty;
     sem_t storage_mutex;
 
-    /*  vax shot count semaphore */
+    /*  vax shot semaphore */
     sem_t vac1_mutex;
     sem_t vac2_mutex;
     
-    /*citizen vax semaphore */
-    sem_t citizen_dose_1;
-    sem_t citizen_dose_2;
-
-    atomic_int clean_up;
 }syncronizer_t;
 
 static struct syncronize_t* sync;
 
 
+void init_sync(int b){
+
+    if(sem_init(&sync->vac1_count,1,0)<0){
+        fprintf(stderr,"Vaccine 1 counter sem could not be initialized\n")
+        exit(-1);
+    }
+
+    if(sem_init(&sync->vac1_coun2,1,0)<0){
+        fprintf(stderr,"Vaccine 2 counter sem could not be initialized\n")
+        exit(-1);
+    }
+
+    if(sem_init(&sync->buffer_full,1,0)<0){
+        fprintf(stderr,"Buffer_full sem could not be initialized\n")
+        exit(-1);
+    }
+
+    if(sem_init(&sync->buffer_empty,1,b)<0){
+        fprintf(stderr,"Buffer_empty sem could not be initialized\n")
+        exit(-1);
+    }
+
+    if(sem_init(&sync->storage_mutex,1,1)<0){
+        fprintf(stderr,"Storage mutex could not be initialized\n")
+        exit(-1);
+    }
+
+    if(sem_init(&sync->vac1_mutex,1,1)<0){
+        fprintf(stderr,"Vaccine 1 mutex could not be initialized\n")
+        exit(-1);
+    }
+
+    if(sem_init(&sync->vac2_mutex,1,1)<0){
+        fprintf(stderr,"Vaccine 2 mutex could not be initialized\n")
+        exit(-1);
+    }
+
+    sync->total_vax=0;
+    
+
+}
+
+
+
+void destroy_sync(){
+
+   f(sem_destroy(&sync->vac1_count)<0){
+        fprintf(stderr,"Vaccine 1 counter sem could not be destroyed\n")
+        exit(-1);
+    }
+
+    if(sem_destroy(&sync->vac1_coun2)<0){
+        fprintf(stderr,"Vaccine 2 counter sem could not be destroyed\n")
+        exit(-1);
+    }
+
+    if(sem_destroy(&sync->buffer_full)<0){
+        fprintf(stderr,"Buffer_full sem could not be destroyed\n")
+        exit(-1);
+    }
+
+    if(sem_destroy(&sync->buffer_empty)<0){
+        fprintf(stderr,"Buffer_empty sem could not be destroyed\n")
+        exit(-1);
+    }
+
+    if(sem_destroy(&sync->storage_mutex)<0){
+        fprintf(stderr,"Storage mutex could not be destroyed\n")
+        exit(-1);
+    }
+
+    if(sem_destroy(&sync->vac1_mutex)<0){
+        fprintf(stderr,"Vaccine 1 mutex could not be destroyed\n")
+        exit(-1);
+    }
+
+    if(sem_destroy(&sync->vac2_mutex)<0){
+        fprintf(stderr,"Vaccine 2 mutex could not be destroyed\n")
+        exit(-1);
+    }
+
+   
+}
 
 /* read with lock
     it will lock file while one of the nurses is reading*/
@@ -101,11 +180,43 @@ int semvalue(sem_t* sem){
 
 void get_vacc_storage();
 void fill_vacc_buffer();
+void add_vax1();
+void add_vax2();
 void vaccinate_dose1_citizen();
 void vaccinate_dose2_citizen();
 
 void nurse(int i,int fd,int t, int c, int buffer_size){
-    
+
+    /*int filesize = 2*t*c;*/
+    char vax;
+    int size;
+    char message[200];
+
+    size=read_with_lock(fd,&vax,1);
+    if(size<0){
+        fprintf(stderr,"Read error\n");
+        exit(-1);
+    }
+    while(size>0){
+        
+        if(vax == '1'){
+            sprintf(message,"Nurse %d (pid=%d) has brought vaccine 1: clinic has %d vaccine1 %d vaccine 2",i+1,getpid(),semvalue(&sync->vac_1))
+            /*vax1 to storage*/
+            add_vax1();
+
+        }
+        
+        if(vax=='2'){
+            /*vax1 to storage*/
+            add_vax2();
+        }
+
+        size=read_with_lock(fd,&vax,1);
+        if(size<0){
+            fprintf(stderr,"Read error\n");
+            exit(-1);
+        }
+    }
 }
 
 
@@ -121,12 +232,20 @@ void sig_handler(int signum){
 
 
         /*delete semaphores */
+        destroy_sync();
 
 
+        /* Uninitialize the shared memory */
+        if(munmap(sync,sizeof(syncronizer_t))<0){
+            fprintf(stderr,"Shared memory could not be unmapped.\n");
+            exit(-1);
+        }
 
-
-        /* uninitialize & unlink shared_memory */
-
+        /* Unlinks the shared memory */
+        if(shm_unlink("sync")<0){
+            fprintf(stderr,"Shared memory could not be unlinked.\n");
+            exit(-1);
+        }
 
         exit(0);
     
@@ -228,7 +347,7 @@ int main(int argc, char** argv){
         exit(-1);
     }
 
-    shm_fd=shm_open("shared_mem",O_CREAT | O_RDWR | O_TRUNC,S_IRWXU | S_IRWXO );
+    shm_fd=shm_open("sync",O_CREAT | O_RDWR | O_TRUNC,S_IRWXU | S_IRWXO );
     if(shm_fd<0){
         fprintf(stderr,"Shared memory coould not be opened\n");
         exit(-1);
@@ -246,14 +365,12 @@ int main(int argc, char** argv){
         exit(-1);
     }
 
-    fprintf(stderr,"Welcome to the CSE344 clinic. Number of citizen to vaccinate c=%d with t=%d doses.\n",c,t);
-
     /* TODO Initialize semaphores */
 
-    
-    
-    
-    
+    init_sync(buffer_size);
+
+    fprintf(stderr,"Welcome to the CSE344 clinic. Number of citizen to vaccinate c=%d with t=%d doses.\n",c,t);
+
     
     for(i=0;i<nurse;i++){
         switch (fork())
@@ -299,7 +416,7 @@ int main(int argc, char** argv){
                 break;
             case 0:
                 vacctinator(i,dose,citizen,buffer_size);
-                exit(EXIT_SUCCESS);
+                exit(-1);
             default:
                 break;
         }
@@ -307,9 +424,22 @@ int main(int argc, char** argv){
     }
 
 
+    destroy_sync();
+
+    /* Uninitialize the shared memory */
+    if(munmap(sync,sizeof(syncronizer_t))<0){
+        fprintf(stderr,"Shared memory could not be unmapped.\n");
+        exit(-1);
+    }
+
+    /* Unlinks the shared memory */
+    if(shm_unlink("sync")<0){
+        fprintf(stderr,"Shared memory could not be unlinked.\n");
+        exit(-1);
+    }
 
 
-
+    close(input_fd);
     return 0;
 }
 
