@@ -13,8 +13,7 @@
 #include <string.h>
 
 typedef struct syncronizer_t{
-    /*atomic_int* buffer;*/
-    /*atomic_int file_offset;*/
+    /* vax counter semaphores */
     sem_t vac1_count;
     sem_t vac2_count;
     atomic_int total_vax;
@@ -79,7 +78,7 @@ void init_sync(int b){
 
 void destroy_sync(){
 
-   f(sem_destroy(&sync->vac1_count)<0){
+   if(sem_destroy(&sync->vac1_count)<0){
         fprintf(stderr,"Vaccine 1 counter sem could not be destroyed\n")
         exit(-1);
     }
@@ -178,20 +177,73 @@ int semvalue(sem_t* sem){
 
 
 
-void get_vacc_storage();
-void fill_vacc_buffer();
-void add_vax1();
-void add_vax2();
-void vaccinate_dose1_citizen();
-void vaccinate_dose2_citizen();
+void get_vacc_storage(int i, int pid, int type){
+    char message[200];
+
+    semwait(&sync->buffer_full);
+    semwait(&sync->storage_mutex);
+
+    if(type==1){
+       semwait(&sync->vac1_count); 
+    }else{
+       semwait(&sync->vac1_count); 
+    }
+
+    --sync->total_vax;
+
+    semwait(&sync->storage_mutex);
+    semwait(&sync->buffer_empty);
+}
+
+
+void vaccinate_dose1_citizen(int i,int pid);
+void vaccinate_dose2_citizen(int i,int pid, int t);
+
+void add_vax1(int i, int pid){
+    char message[200];
+    semwait(&sync->buffer_empty);
+    semwait(&sync->storage_mutex);
+
+    sempost(&sync->vac1_count);
+    ++sync->total_vax;
+    sprintf(message,"Nurse %d (pid=%d) has brought vaccine 1: clinic has %d vaccine1 %d vaccine 2",i+1,pid,semvalue(&sync->vac1_count),semvalue(&sync->vac2_count));
+    if(write(STDERR_FILENO,message,strlen(message))<0){
+        exit(-1);
+    }
+    sempost(&sync->storage_mutex);
+    sempost(&sync->buffer_full);
+}
+
+
+
+void add_vax2(int i, int pid){
+    char message[200];
+    semwait(&sync->buffer_empty);
+    semwait(&sync->storage_mutex);
+
+    sempost(&sync->vac2_count);
+    ++sync->total_vax;
+    sprintf(message,"Nurse %d (pid=%d) has brought vaccine 2: clinic has %d vaccine1 %d vaccine 2",i+1,pid,semvalue(&sync->vac1_count),semvalue(&sync->vac2_count));;
+   if(write(STDERR_FILENO,message,strlen(message))<0){
+        exit(-1);
+    }
+    sempost(&sync->storage_mutex);
+    sempost(&sync->buffer_full);
+
+}
+
+
+
+
+
+
 
 void nurse(int i,int fd,int t, int c, int buffer_size){
-
+    char message[200];
     /*int filesize = 2*t*c;*/
     char vax;
     int size;
-    char message[200];
-
+    
     size=read_with_lock(fd,&vax,1);
     if(size<0){
         fprintf(stderr,"Read error\n");
@@ -200,15 +252,15 @@ void nurse(int i,int fd,int t, int c, int buffer_size){
     while(size>0){
         
         if(vax == '1'){
-            sprintf(message,"Nurse %d (pid=%d) has brought vaccine 1: clinic has %d vaccine1 %d vaccine 2",i+1,getpid(),semvalue(&sync->vac_1))
+            
             /*vax1 to storage*/
-            add_vax1();
+            add_vax1(i,getpid());
 
         }
         
         if(vax=='2'){
             /*vax1 to storage*/
-            add_vax2();
+            add_vax2(i,getpid);
         }
 
         size=read_with_lock(fd,&vax,1);
@@ -217,6 +269,12 @@ void nurse(int i,int fd,int t, int c, int buffer_size){
             exit(-1);
         }
     }
+
+    sprintf(message,"Nurses carried all vaccines to the buffer. Terminating...\n");
+    if(write(STDERR_FILENO,message,strlen(message))<0){
+        exit(-1);
+    }
+
 }
 
 
