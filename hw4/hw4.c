@@ -15,21 +15,42 @@
 #include <stdatomic.h>
 
 
-
+/* student budget*/
 int budget;
 
+/* syncronizer for producer consumer btw thread_h and main_thread */ 
 sem_t hw_empty;
 sem_t hw_full;
 sem_t hw_mutex;
 
+/* define critical region btw worker_threads and main_thread*/
+/*check and modify availablity, assigned */
 sem_t *student_hire_mutex;
 
+
+
+/* homework queue to write and read from */
+/* buffer of the producer consumer btw main and h */
 typedef struct queue_s{
 
-    char *hw;
-    
+    char* array;
+    atomic_int front;
+    atomic_int rear;
+    atomic_int size;
+    atomic_int capacity;
+
 }queue_s;
 
+static struct queue_s* hw_queue;
+
+/* define each students*/
+/*student threads will read the index of themselves from student array*/
+/* it will define sleeping time and cost*/
+/* According to student array there will be created index arrays to find the fastest/cheapest/ most qualified one*/
+/* ex: HW : S
+    check speed_index array, find avalible one. ex index speed[0]=3 ->  student[3]. 
+    Modify assigned bit of student[3] and let it sleep for 6-S time
+ */ 
 
 typedef struct student_s{
     char name[20];
@@ -43,17 +64,27 @@ typedef struct student_s{
 
 struct student_s *students;  
 
-
+/* threads */
 void * thread_h_work(void* params){}
 void* worker_thread(void* params){};
 
 
+/* essential functions to prepare enviroment */
 int student_count(char* filepath);
 void fill_students(struct student_s * s, int student_count, char*filename);
 void sort_speed(struct student_s *s, int*);
 void sort_quality(struct student_s *s, int*);
 void sort_cost(struct student_s *s, int*);
 void print_usage();
+
+
+/* queue functions */
+
+void init_queue(int capacity);
+char poll();
+void offer(char hw);
+
+
 
 int main(int argc, char**argv){
 
@@ -62,6 +93,11 @@ int main(int argc, char**argv){
     int *speed_index;
     int *quality_index;
     int *cost_index;
+
+    pthread_t thread_h;
+    pthread_t *worker_threads;
+
+
 
     if(argc<4){
         print_usage();
@@ -74,12 +110,35 @@ int main(int argc, char**argv){
     budget= atoi(argv[3]);
     student_cnt=student_count(hwfile);
     students = (struct student_s*) calloc (student_cnt,sizeof(struct student_s));
+    hw_queue = (struct queue_s*) calloc(1,sizeof(struct queue_s));
+    worker_threads = (pthread_t*) calloc(student_cnt,sizeof(pthread_t));
 
     fill_students(students,student_cnt,student_for_hire);
+    init_queue(student_cnt+1);
+
+
+    /* Create Threads */
 
 
 
 
+
+
+
+    /* main thread Loop*/
+
+
+
+
+
+
+
+
+
+
+
+
+    /* join threads */
 
 
 
@@ -88,6 +147,10 @@ int main(int argc, char**argv){
     free(quality_index);
     free(students);
     free(student_hire_mutex);
+    free(worker_threads);
+    free(hw_queue->array);
+    free(hw_queue);
+
     return 0;
 }
 
@@ -140,6 +203,7 @@ int student_count(char *filepath){
 
 
 void fill_students(struct student_s *s , int student_count ,  char* filename){
+
     
     int i=0;
     FILE* inputfile;
@@ -171,3 +235,45 @@ void fill_students(struct student_s *s , int student_count ,  char* filename){
 
     fclose(inputfile);
 }
+
+void init_queue(int capacity){
+    hw_queue->capacity = capacity;
+    hw_queue->front = 0;
+    hw_queue->size = 0;
+    hw_queue->rear = hw_queue->capacity;
+
+
+    hw_queue->array = (char*) calloc(capacity,sizeof(char));
+
+}
+
+char poll(){
+    
+    char hw;
+
+    if(hw_queue->size==0){
+        return -1;
+    }
+
+    hw = hw_queue->array[hw_queue->front];
+
+    hw_queue->front = (hw_queue->front +1)%hw_queue->capacity;
+    hw_queue->size--;
+
+    return hw;
+
+}
+
+
+void offer(char hw){
+    
+    if(hw_queue->size==hw_queue->capacity){
+        fprintf(stderr,"Hw queue is full\n");
+        return ;
+    }
+
+    hw_queue->rear = (hw_queue->rear+1)%hw_queue->capacity;
+    hw_queue->array[hw_queue->rear]=hw;
+    hw_queue->size++;
+}
+
