@@ -65,8 +65,8 @@ typedef struct student_s{
 struct student_s *students;  
 
 /* threads */
-void * thread_h_work(void* params){}
-void* worker_thread(void* params){};
+void * thread_h_work(void* params);
+void* worker_thread(void* params);
 
 
 /* essential functions to prepare enviroment */
@@ -84,7 +84,7 @@ void init_queue(int capacity);
 char poll();
 void offer(char hw);
 
-
+void signal_handler(int signo);
 
 int main(int argc, char**argv){
 
@@ -97,6 +97,12 @@ int main(int argc, char**argv){
     pthread_t thread_h;
     pthread_t *worker_threads;
 
+    struct sigaction sa;
+  
+
+    memset(&sa,0,sizeof(sa));
+    sa.sa_handler=&signal_handler;
+    sigaction(SIGINT,&sa,NULL);
 
 
     if(argc<4){
@@ -201,7 +207,6 @@ int student_count(char *filepath){
     return count;
 }
 
-
 void fill_students(struct student_s *s , int student_count ,  char* filename){
 
     
@@ -264,7 +269,6 @@ char poll(){
 
 }
 
-
 void offer(char hw){
     
     if(hw_queue->size==hw_queue->capacity){
@@ -276,4 +280,19 @@ void offer(char hw){
     hw_queue->array[hw_queue->rear]=hw;
     hw_queue->size++;
 }
+
+void signal_handler(int signo){
+    if(signo==SIGINT){
+        /* destory semaphores */
+
+        /* make all threads alive params -1 */
+
+        /* join thread*/
+
+        /* free blocks*/
+    }
+}
+
+void* thread_h_work(void* params){}
+void* worker_thread(void* params){}
 
