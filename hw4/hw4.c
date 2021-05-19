@@ -93,8 +93,10 @@ int main(int argc, char**argv){
     int *speed_index;
     int *quality_index;
     int *cost_index;
-
-    pthread_t thread_h;
+    int i=0;
+    int thread_h_res;
+    int* working_thread_res;
+    pthread_t thrd_h;
     pthread_t *worker_threads;
 
     struct sigaction sa;
@@ -117,19 +119,54 @@ int main(int argc, char**argv){
     student_cnt=student_count(hwfile);
     students = (struct student_s*) calloc (student_cnt,sizeof(struct student_s));
     hw_queue = (struct queue_s*) calloc(1,sizeof(struct queue_s));
+    working_thread_res = (int *) calloc(student_cnt,sizeof(int));
+    student_hire_mutex = (sem_t*) calloc(student_cnt, sizeof(sem_t));
+
     worker_threads = (pthread_t*) calloc(student_cnt,sizeof(pthread_t));
 
     fill_students(students,student_cnt,student_for_hire);
     init_queue(student_cnt+1);
 
 
+
+    /*Initialize semaphores */
+
+     if(sem_init(&hw_full,1,0)<0){
+        fprintf(stderr,"hw_full sem could not be initialized\n");
+        exit(-1);
+    }
+
+    if(sem_init(&hw_empty,1,student_cnt+1)<0){
+        fprintf(stderr,"hw_empty sem could not be initialized\n");
+        exit(-1);
+    }
+
+    if(sem_init(&hw_mutex,1,1)<0){
+        fprintf(stderr,"hw_mutex could not be initialized\n");
+        exit(-1);
+    }
+
+
+    for(i=0;i<student_cnt;i++){
+        if(sem_init(&student_hire_mutex[i],1,1)<0){
+            fprintf(stderr,"student_hire_mutex[%d] could not be initialized\n",i);
+            exit(-1);
+        }
+    }
+
+
     /* Create Threads */
 
+    for(i = 0;i<student_cnt;i++){
+
+    }
 
 
+    pthread_create(&thrd_h,NULL,thread_h_work,NULL);
 
-
-
+    for(i = 0 ;i<student_cnt;i++){
+        pthread_create(&worker_threads[i], NULL, worker_thread, (void*)i);
+    }
 
     /* main thread Loop*/
 
@@ -146,6 +183,36 @@ int main(int argc, char**argv){
 
     /* join threads */
 
+    pthread_join(thrd_h, &thread_h_res);
+
+    for(i = 0 ;i<student_cnt;i++){
+        pthread_join(worker_threads[i], &working_thread_res[i]);
+    }
+
+    /* destroy semaphores */
+
+    if(sem_destroy(&hw_full)<0){
+        fprintf(stderr,"hw_full sem could not be destroyed\n");
+        exit(-1);
+    }
+
+    if(sem_destroy(&hw_empty)<0){
+        fprintf(stderr,"hw_empty sem could not be destroyed\n");
+        exit(-1);
+    }
+
+    if(sem_destroy(&hw_mutex)<0){
+        fprintf(stderr,"hw_mutex could not be destroyed\n");
+        exit(-1);
+    }
+
+
+    for(i=0;i<student_cnt;i++){
+        if(sem_destroy(&student_hire_mutex[i])<0){
+            fprintf(stderr,"student_hire_mutex[%d] could not be destroyed\n",i);
+            exit(-1);
+        }
+    }
 
 
     free(speed_index);
@@ -156,7 +223,7 @@ int main(int argc, char**argv){
     free(worker_threads);
     free(hw_queue->array);
     free(hw_queue);
-
+    free(working_thread_res);
     return 0;
 }
 
