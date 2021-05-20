@@ -1,0 +1,4 @@
+odtulu 5 3 900 
+itulu 4 4 800
+ytulu 3 4 650
+sakaryali 1 2 150
