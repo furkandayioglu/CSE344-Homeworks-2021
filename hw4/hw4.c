@@ -28,7 +28,7 @@ sem_t hw_mutex;
 /* define critical region btw worker_threads and main_thread*/
 /*check and modify availablity, assigned */
 sem_t *student_hire_mutex;
-
+sem_t sfh;
 
 
 /* homework queue to write and read from */
@@ -114,19 +114,23 @@ int student_cnt;
 char *hwfile, *student_for_hire;
 pthread_t thrd_h;
 pthread_t *worker_threads;
+int *speed_index;
+int *quality_index;
+int *cost_index;
 
 int main(int argc, char**argv){
 
     
   
-    int *speed_index;
-    int *quality_index;
-    int *cost_index;
+  
     int i=0;
     int s;
 
+    atomic_char c;
+
+
     int hw_fd;
-    int main_avaliale_thread_flag = 0;
+    
 
     struct sigaction sa;
   
@@ -147,18 +151,25 @@ int main(int argc, char**argv){
     budget= atoi(argv[3]);
     student_cnt=student_count(student_for_hire);
 
-    students = (struct student_s*) calloc (student_cnt,sizeof(struct student_s));
-    hw_queue = (struct queue_s*) calloc(1,sizeof(struct queue_s));    
-    student_hire_mutex = (sem_t*) calloc(student_cnt, sizeof(sem_t));
-    worker_threads = (pthread_t*) calloc(student_cnt,sizeof(pthread_t));
+    students = (struct student_s*) malloc (student_cnt*sizeof(struct student_s));
 
-    speed_index = (int*) calloc(student_cnt,sizeof(int));
-    quality_index = (int*) calloc(student_cnt,sizeof(int));
-    cost_index = (int*) calloc(student_cnt,sizeof(int));
+    hw_queue = (struct queue_s*) malloc(1*sizeof(struct queue_s));   
+    hw_queue->array = (char*) malloc((student_cnt+1)*sizeof(char)); 
+
+    student_hire_mutex = (sem_t*) malloc(student_cnt* sizeof(sem_t));
+    worker_threads = (pthread_t*) malloc(student_cnt*sizeof(pthread_t));
+
+    speed_index = (int*) malloc(student_cnt*sizeof(int));
+    quality_index = (int*) malloc(student_cnt*sizeof(int));
+    cost_index = (int*) malloc(student_cnt*sizeof(int));
 
     fill_students(students,student_cnt,student_for_hire);
-    init_queue(student_cnt+1);
 
+    for(i=0;i<student_cnt;i++){
+        fprintf(stderr,"%10s   %3d    %3d    %3d  \n",students[i].name,students[i].quality,students[i].speed,students[i].cost);
+    }
+
+    init_queue(student_cnt+1);
     sort_speed(students,speed_index,student_cnt);
     sort_quality(students,quality_index,student_cnt);
     sort_cost(students,cost_index,student_cnt);
@@ -172,27 +183,37 @@ int main(int argc, char**argv){
 
     /*Initialize semaphores */
 
-     if(sem_init(&hw_full,1,0)<0){
+     if(sem_init(&hw_full,0,0)<0){
         fprintf(stderr,"hw_full sem could not be initialized\n");
         exit(-1);
     }
 
-    if(sem_init(&hw_empty,1,student_cnt+1)<0){
+    if(sem_init(&hw_empty,0,student_cnt+1)<0){
         fprintf(stderr,"hw_empty sem could not be initialized\n");
         exit(-1);
     }
 
-    if(sem_init(&hw_mutex,1,1)<0){
+    if(sem_init(&hw_mutex,0,1)<0){
         fprintf(stderr,"hw_mutex could not be initialized\n");
         exit(-1);
     }
 
+    if(sem_init(&sfh,0,1)<0){
+        fprintf(stderr,"stf could not be initialized\n");
+        exit(-1);
+    }
 
     for(i=0;i<student_cnt;i++){
         if(sem_init(&student_hire_mutex[i],1,1)<0){
             fprintf(stderr,"student_hire_mutex[%d] could not be initialized\n",i);
             exit(-1);
         }
+    }
+
+    s=pthread_create(&thrd_h,NULL,thread_h_work,&hw_fd);
+    if(s != 0){
+        fprintf(stderr,"H Thread creation failed\n");
+        exit(-1);
     }
 
 
@@ -209,76 +230,86 @@ int main(int argc, char**argv){
     }
 
 
-    s=pthread_create(&thrd_h,NULL,thread_h_work,&hw_fd);
-    if(s != 0){
-        fprintf(stderr,"H Thread creation failed\n");
-        exit(-1);
+   for(i = 0;i<student_cnt;i++){  
+       students[i].avaliable=0;       
     }
-
 
    
     /* main thread Loop*/
-
+    semwait(&hw_full);
+    semwait(&hw_mutex);
+    c=poll();
+    sempost(&hw_mutex);
+    sempost(&hw_empty);
 
     while(true){
-        char c;
-        int any_assinged=-1;
+       
+        atomic_int any_assinged=-1;       
+
+        if(c=='Q'){
+            atomic_int qflag=0;
+            atomic_int index=0;
+            while(qflag==0){
+                       
+                semwait(&sfh); 
+                if(students[quality_index[index]].avaliable == 0 && budget > students[quality_index[index]].cost){
+                    
+                                       
+                                       
+                    budget -= students[quality_index[index]].cost;
+                  
+                    qflag=1;
+                    any_assinged=1;
+                }
+
+                sempost(&sfh);
+            
+                index++;
+            }
+        }else if(c=='S'){
+            atomic_int sflag=0;
+            atomic_int index=-1;
+            while(sflag==0){                
+                semwait(&sfh);
+                if(students[speed_index[index]].avaliable == 0 && budget > students[speed_index[index]].cost){
+                
+                    
+                    
+                    budget -= students[speed_index[index]].cost;
+                    sflag=1;
+                    any_assinged=1;
+                }
+                sempost(&sfh);
+                index++;
+                
+            }
+        }else if(c=='C'){
+            atomic_int cflag=0;
+            atomic_int index=0;
+            while(cflag==0){                
+                semwait(&sfh);
+                if(students[cost_index[index]].avaliable == 0 && budget > students[cost_index[index]].cost){
+                     budget -= students[cost_index[index]].cost;                             
+                   cflag=1;
+                   any_assinged=1;
+                   
+                }
+                sempost(&sfh);
+                index++;
+                
+            }
+        }
+
+        if(any_assinged==-1){
+            pthread_cancel(thrd_h);
+            break;
+        }
+
         semwait(&hw_full);
         semwait(&hw_mutex);
         c=poll();
         sempost(&hw_mutex);
         sempost(&hw_empty);
-
-        if(c=='Q'){
-            int qflag=0;
-            int index=0;
-            while(qflag==0){
-                semwait(&student_hire_mutex[index]);
-                if(students[quality_index[index]].avaliable == 0 && budget > students[quality_index[index]].cost){
-                    students[quality_index[index]].assigned==1;
-                    budget -= students[quality_index[index]].cost;
-                    qflag++;
-                    any_assinged=1;
-                }
-                sempost(&student_hire_mutex[index]);
-                index++;
-            }
-        }
-        if(c=='S'){
-            int sflag=0;
-            int index=0;
-            while(sflag==0){
-                semwait(&student_hire_mutex[index]);
-                if(students[speed_index[index]].avaliable == 0 && budget > students[speed_index[index]].cost){
-                    students[speed_index[index]].assigned==1;
-                    budget -= students[speed_index[index]].cost;
-                    sflag++;
-                    any_assinged=1;
-                }
-                sempost(&student_hire_mutex[index]);
-                index++;
-            }
-        }
-        if(c=='C'){
-             int cflag=0;
-            int index=0;
-            while(cflag==0){
-                semwait(&student_hire_mutex[index]);
-                if(students[cost_index[index]].avaliable == 0 && budget > students[cost_index[index]].cost){
-                    students[cost_index[index]].assigned==1;
-                    budget -= students[cost_index[index]].cost;
-                    cflag++;
-                    any_assinged=1;
-                }
-                sempost(&student_hire_mutex[index]);
-                index++;
-            }
-        }
-
-        if(any_assinged==-1){
-            low_budget_flag=-1;
-            break;
-        }
 
     }
 
@@ -321,6 +352,11 @@ int main(int argc, char**argv){
         exit(-1);
     }
 
+
+    if(sem_destroy(&sfh)<0){
+        fprintf(stderr,"stf could not be destroyed\n");
+        exit(-1);
+    }
 
     for(i=0;i<student_cnt;i++){
         if(sem_destroy(&student_hire_mutex[i])<0){
@@ -414,7 +450,7 @@ void fill_students(struct student_s *s , int student_count ,  char* filename){
         s[i].quality=quality;
         s[i].speed=speed;
         s[i].cost = cost;
-        s[i].avaliable = 0;
+        s[i].avaliable = 1;
         s[i].alive=1;
         s[i].assigned=0;
         s[i].hw_solved=0;
@@ -431,7 +467,7 @@ void init_queue(int capacity){
     hw_queue->rear = hw_queue->capacity;
 
 
-    hw_queue->array = (char*) calloc(capacity,sizeof(char));
+   
 
 }
 
@@ -468,9 +504,7 @@ void sort_speed(struct student_s *s, int*arr,int count){
 
     int i=0;
     int j=0;
-    
-    fprintf(stderr,"%d count\n",count);
-
+ 
     for(i=0 ; i< count;i++)
         arr[i]=i;
 
@@ -566,12 +600,18 @@ void signal_handler(int signo){
         }
         /* join thread*/
 
-         pthread_join(thrd_h, NULL);
+         pthread_cancel(thrd_h);
 
          for(i = 0 ;i<student_cnt;i++){
-             pthread_join(worker_threads[i], NULL);
+             pthread_cancel(worker_threads[i]);
          }
         /* free blocks*/
+        free(speed_index);
+        free(cost_index);
+        free(quality_index);
+        free(students);
+        free(student_hire_mutex);
+        free(worker_threads);
         free(hw_queue->array);
         free(hw_queue);
     }
@@ -583,26 +623,37 @@ void* thread_h_work(void* params){
     int fd = *tfd;
     char c;
     int size=0;
+    
 
+
+    semwait(&hw_empty);
+    semwait(&hw_mutex);
     size = read(fd,&c,1);
     if(size<0){
         fprintf(stderr,"Thread H: File read error\n");
         exit(-1);
     }
+    offer(c);
+    fprintf(stderr,"H has a new homework  %c;  Remaining Money is %dTL\n",c,budget);
+    sempost(&hw_mutex);
+    sempost(&hw_full);
+    
     while(size>0 || low_budget_flag!=-1){
         
         semwait(&hw_empty);
         semwait(&hw_mutex);
-        offer(c);
-        fprintf(stderr,"H has a new homework  %c;  Remaining Money is %d\n",c,budget);
-        sempost(&hw_mutex);
-        sempost(&hw_full);
-        
         size = read(fd,&c,1);
         if(size<0){
             fprintf(stderr,"Thread H: File read error\n");
             exit(-1);
         }
+        offer(c);
+        fprintf(stderr,"H has a new homework  %c;  Remaining Money is %dTL\n",c,budget);
+        sempost(&hw_mutex);
+        sempost(&hw_full);
+        
+        
+
     }
 
     if(low_budget_flag==1){
@@ -624,26 +675,37 @@ void* worker_thread(void* params){
     atomic_int hw_count=0;
     int sleep_duration = students[index].speed;
     
-    /*int alive = students[index].alive;*/
-
+    
     while(students[index].alive != -1){
-        
-        if(students[index].avaliable == 0 && students[index].assigned==1){
 
-            semwait(&student_hire_mutex[index]);
-            students[index].avaliable = 1;
-            sleep(sleep_duration);
-            students[index].hw_solved++;
-            students[index].money_made += students[index].cost;
+        
+        
+        semwait(&sfh);
+       
+        if(students[index].avaliable == 0 ){
+           
+            students[index].avaliable = 1;            
+            fprintf(stderr,"%s is solving homework, H has %d TL left\n",students[index].name,budget);            
+            sleep(sleep_duration);          
+            budget -=students[index].cost;
             students[index].avaliable = 0;
             students[index].assigned=0;
-            semwait(&student_hire_mutex[index]);
+            
+            
+           
+            students[index].hw_solved++;
+            students[index].money_made += students[index].cost;
+          
+            
 
+        }else if(students[index].avaliable == 0 && students[index].assigned==0){
+            fprintf(stderr,"%s is waiting for a homework\n",students[index].name);
         }
-
+        sempost(&sfh);
     }
 
    fprintf(stderr,"%s solved %u hw, made %u money\n",students[index].name,students[index].hw_solved,students[index].money_made);
+  
    return 0 ;
 }
 
