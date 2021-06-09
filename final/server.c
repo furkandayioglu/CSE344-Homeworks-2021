@@ -59,13 +59,13 @@ threadP_t *threadParams; /* thread_params */
 
 /* SQL Functions */
 /* select  ---- > reader */
-char **select_Q(int distinct, char *column_name);
+void select_Q(int tid,int distinct, char *column_name);
 /* Update ---- > writer */
-int update_Q(char *column_name, char *where_column);
+int update_Q(int tid,char *column_name, char *where_column);
 
-int sql_parser(char *command);
-char **select_parser(char *command);
-int update_parser(char *command);
+void sql_parser(int tid,char *command);
+void select_parser(int tid,char *command);
+int update_parser(int tid,char *command);
 
 void *thread_func(void *);
 
@@ -79,8 +79,10 @@ int WW = 0; /* Waiting Writer*/
 /* condition variables */
 pthread_cond_t okToRead = PTHREAD_COND_INITIALIZER;  /* reader condition variable*/
 pthread_cond_t okToWrite = PTHREAD_COND_INITIALIZER; /* writer condition variable*/
+
 /* mutex */
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;       /* initialize mutex */
+
 pthread_mutex_t mainMutex = PTHREAD_MUTEX_INITIALIZER;   /* initialize main mutex controls threads job assignment loop */
 pthread_mutex_t m_pool_full = PTHREAD_MUTEX_INITIALIZER; /* check if all threads are busy */
 pthread_cond_t c_pool_full = PTHREAD_COND_INITIALIZER;   /* signal if any thread gets available */
@@ -575,11 +577,13 @@ void *thread_func(void *args)
             query[q_len] = '\0';
             sprinf(query_rec_msg, "Thread#%d : recieved query \"%s\"", id, query);
             print_log(query_rec_msg);
+
+            sql_parser(id,query);
         }
     }
 }
 
-int sql_parser(char *command, char **res)
+void sql_parser(int tid,char *command)
 {
     char *temp = "";
     int row_eff;
@@ -589,18 +593,18 @@ int sql_parser(char *command, char **res)
     /* READER PART*/
     if (strcmp("SELECT", temp) == 0)
     {
-        res = select_parser(command);
-        row_eff = table_lenght;
+        select_parser(tid,command);
+        
     }/* WRITER PART */
     else if (strcmp("UPDATE", temp) == 0)
     {
-        row_eff = update_parser(command);
+         update_parser(tid,command);
     }
 
-    return row_eff;
+    
 }
 
-char **select_parser(char *command)
+void select_parser(int tid,char *command)
 {
     char *temp;
     char column_name[500] = "";
@@ -641,13 +645,23 @@ char **select_parser(char *command)
         memset(temp, 0, strlen(temp));
     }
 
-    char **res = select_Q(distinct_f, column_name);
+     select_Q(tid,distinct_f, column_name);
 
-    return res;
+    
 }
 
-char **select_Q(int distinct, char *column_name)
-{
+void select_Q(int tid,int distinct, char *column_name)
+{   
+    pthread_mutex_lock(&mutex);
+
+    while((AW+WW)>0){
+        WR++;
+        pthread_cond_wait(&okToRead,&mutex);
+        WR--;
+    }
+    AR++;
+
+    pthread_mutex_unlock(&mutex);
     char **result_table = (char **)calloc(table_lenght, sizeof(char *));
     char **distinct_table = (char **)calloc(table_lenght, sizeof(char *));
     int i = 0, j = 0, k = 0;
@@ -658,7 +672,7 @@ char **select_Q(int distinct, char *column_name)
         distinct_table[i] = (char *)calloc(1024, sizeof(char));
     }
 
-    fflush(stderr);
+    
     if (strcmp(column_name, "*") == 0)
     {
 
@@ -670,7 +684,7 @@ char **select_Q(int distinct, char *column_name)
                 strcat(result_table[i], table[j][i]);
             }
 
-            fprintf(stderr, "%s\n", result_table[i]);
+            //fprintf(stderr, "%s\n", result_table[i]);
         }
     }
     else if (distinct == 0)
@@ -744,12 +758,23 @@ char **select_Q(int distinct, char *column_name)
         }
     }
 
+    char* selectmsg[500];
+    sprintf(selectmsg,"Thread#%d : query completed %d records have been returned\n",tid,table_lenght);
+    print_log(selectmsg);
+
+    pthread_mutex_lock(&mutex);
+	AR--;
+	if (AR == 0 && WW > 0)
+		pthread_cond_signal(&okToWrite);		// prioriy writers
+	pthread_mutex_unlock(&mutex);
+
     for (i = 0; i < table_lenght; i++)
-    {
+    {   free(result_table[i]);
         free(distinct_table[i]);
     }
-
+    free(result_table);
     free(distinct_table);
+
     return result_table;
 }
 
@@ -793,8 +818,17 @@ int update_parser(char* command){
     return howManyEntryEffected; 
 }
 
-int update_Q(char* column_name, char* where_column){
+void update_Q(int tid, char* column_name, char* where_column){
     
+    pthread_mutex_lock(&mutex);
+	while ((AW + AR) > 0) { // if any readers or writers, wait
+		WW++; 				// waiting writer
+		pthread_cond_wait(&okToWrite, &mutex);
+		WW--;
+	}
+	AW++; // active writer
+	pthread_mutex_unlock(&mutex); 
+
     int effected_row=0;
     char*temp="";
     int where_column_index=0;
@@ -849,5 +883,18 @@ int update_Q(char* column_name, char* where_column){
         effected_row = row_count;
     }   
     
-    return effected_row;
+    char* updatemsg[500];
+    sprintf(updatemsg,"Thread#%d: query completed. %d records updated\n",tid,effected_row);
+    print_log(updatemsg);
+
+    
+
+    AW--;
+	if (WW > 0) 	// give priority to other writers
+		pthread_cond_signal(&okToWrite);
+	else if (WR > 0)
+		pthread_cond_broadcast(&okToRead);
+	pthread_mutex_unlock(&mutex);
+
+   
 }
