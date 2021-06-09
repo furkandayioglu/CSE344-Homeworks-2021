@@ -36,6 +36,7 @@ typedef struct threadP_t
     int id;
     int status; /* if it works or sits idle */
     int socketFD;
+    int busy;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 } threadP_t;
@@ -51,22 +52,20 @@ void read_csv_file(char *filename);
 void line_to_table(char *line, int line_number);
 void threadP_Array();
 
-
-
-
-/* SQL FUNCTIONALITIES*/
-
 /*THREAD FUNCTIONS*/
 
 pthread_t *pool_threads;
 threadP_t *threadParams; /* thread_params */
 
+/* SQL Functions */
+/* select  ---- > reader */
+char **select_Q(int distinct, char *column_name);
+/* Update ---- > writer */
+int update_Q(char *column_name, char *where_column);
 
-
-/* select*/
-char** reader();
-/* Update*/
-int writer();
+int sql_parser(char *command);
+char **select_parser(char *command);
+int update_parser(char *command);
 
 void *thread_func(void *);
 
@@ -81,11 +80,10 @@ int WW = 0; /* Waiting Writer*/
 pthread_cond_t okToRead = PTHREAD_COND_INITIALIZER;  /* reader condition variable*/
 pthread_cond_t okToWrite = PTHREAD_COND_INITIALIZER; /* writer condition variable*/
 /* mutex */
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;          /* initialize mutex */
-pthread_mutex_t mainMutex = PTHREAD_MUTEX_INITIALIZER;      /* initialize main mutex controls threads job assignment loop */
-pthread_mutex_t m_pool_full = PTHREAD_MUTEX_INITIALIZER;    /* check if all threads are busy */
-pthread_cond_t c_pool_full = PTHREAD_COND_INITIALIZER;      /* signal if any thread gets available */
-
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;       /* initialize mutex */
+pthread_mutex_t mainMutex = PTHREAD_MUTEX_INITIALIZER;   /* initialize main mutex controls threads job assignment loop */
+pthread_mutex_t m_pool_full = PTHREAD_MUTEX_INITIALIZER; /* check if all threads are busy */
+pthread_cond_t c_pool_full = PTHREAD_COND_INITIALIZER;   /* signal if any thread gets available */
 
 /* COMMANDLINE ARGUMENTS */
 int port;
@@ -112,7 +110,7 @@ int shmid;
 int main(int argc, char **argv)
 {
     int opt;
-   
+
     pid_t pid = 0, snw = 0;
 
     /*LOG PATH*/
@@ -171,7 +169,7 @@ int main(int argc, char **argv)
         double time_interval;
         struct timeval tm1, tm2;
         struct sockaddr_in serv_adr;
-        char socBuf[1025]="";
+        char socBuf[1025] = "";
         int socketFd;
 
         if (argc != 9)
@@ -230,7 +228,7 @@ int main(int argc, char **argv)
         sprintf(param4, "-d %s\n", datasetPath);
         print_log(param4);
 
-        signal(SIGINT,sigIntHandle); 
+        signal(SIGINT, sigIntHandle);
 
         print_log("Loading dataset...\n");
 
@@ -239,19 +237,19 @@ int main(int argc, char **argv)
         table_lenght = line_number(datasetPath);
 
         /*initialize table*/
-        table = (char ***)calloc(column_number ,sizeof(char **));
+        table = (char ***)calloc(column_number, sizeof(char **));
 
         for (i = 0; i < column_number; i++)
         {
-            table[i] = (char **)calloc(table_lenght , sizeof(char *));
+            table[i] = (char **)calloc(table_lenght, sizeof(char *));
             for (j = 0; j < table_lenght; j++)
-                table[i][j] = (char *)calloc(150 , sizeof(char));
+                table[i][j] = (char *)calloc(150, sizeof(char));
         }
 
         read_csv_file(datasetPath);
 
-        pool_threads = (pthread_t *)calloc(poolSize , sizeof(pthread_t));
-        threadParams = (threadP_t*) calloc(poolSize,sizeof(threadP_t));
+        pool_threads = (pthread_t *)calloc(poolSize, sizeof(pthread_t));
+        threadParams = (threadP_t *)calloc(poolSize, sizeof(threadP_t));
         threadP_Array();
 
         gettimeofday(&tm2, NULL);
@@ -275,11 +273,11 @@ int main(int argc, char **argv)
         /* Socket \m/ */
 
         socketFd = 0;
-        memset(&serv_adr,'0',sizeof(serv_adr));
-        memset(socBuf,'0',sizeof(socBuf));
+        memset(&serv_adr, '0', sizeof(serv_adr));
+        memset(socBuf, '0', sizeof(socBuf));
 
-
-        if((socketFd = socket(AF_INET,SOCK_STREAM,0)<0)){
+        if ((socketFd = socket(AF_INET, SOCK_STREAM, 0) < 0))
+        {
             print_log("Socket Initialization failed \n");
             print_log("Terminating....\n");
             exit(-1);
@@ -289,50 +287,56 @@ int main(int argc, char **argv)
         serv_adr.sin_addr.s_addr = inet_addr(socket_ip);
         serv_adr.sin_port = htons(port);
 
-
-
-        if( (bind(socketFd,(struct sockaddr*)&serv_adr,sizeof(serv_adr))) <0 ){
+        if ((bind(socketFd, (struct sockaddr *)&serv_adr, sizeof(serv_adr))) < 0)
+        {
             print_log("Socket Binding error \n");
             print_log("Terminating...");
             exit(-1);
-
         }
 
-        if((listen(socketFD,20))<0){
+        if ((listen(socketFD, 20)) < 0)
+        {
             print_log("Listen Error\n");
             print_log("Terminating...\n");
             exit(-1);
         }
 
-
-
-        while(1){
+        while (1)
+        {
 
             socklen_t soclen = sizeof(serv_adr);
-            int accept_fd = accept(sockerFd,(struct sockaddr*)&serv_adr,&len);
+            int accept_fd = accept(sockerFd, (struct sockaddr *)&serv_adr, &len);
 
             pthread_mutex_lock(&mainMutex);
-            int busy_Flag = 0;
+            int threadFound = 0;
 
-            for(i=0;i<poolSize;i++){
-                if(threadParams[i].status == 0){
+            for (i = 0; i < poolSize; i++)
+            {
+                if (threadParams[i].status == 0)
+                {
                     char threadMsg[500];
-                    threadParams[i].status=1;
+                    threadParams[i].status = 1;
+                    threadParams[i].busy = 1;
                     threadParams[i].socketFD = accept_fd;
                     pthread_cond_signal(threadParams[i].cond);
 
+                    sprinf(threadMsg, "A connection has been delegated to thread_id #%d", i);
+                    print_log(threadMsg);
 
+                    thradFound = 1;
                 }
-
             }
 
+            pthread_mutex_unlock(&mainMutex);
+            if (threadFound == 0)
+            {
+                char noTMSG[] = "No thread is available! waiting...\n";
+                print_log(noTMSG);
+            }
 
-
+            if (sig_int == 1)
+                break;
         }
-
-
-
-
 
         for (i = 0; i < poolSize; i++)
         {
@@ -486,23 +490,364 @@ void line_to_table(char *line, int line_number)
     }
 }
 
-void threadP_Array(){
+void threadP_Array()
+{
     int i = 0;
 
-    for(i=0;i<poolSize;i++){
+    for (i = 0; i < poolSize; i++)
+    {
         threadParams[i].id = i;
         threadParams[i].status = 0;
-        threadParams[i].socketFD=0;
-        if(pthread_mutex_init(&threadParams[i].mutex,NULL)!=0){
+        threadParams[i].socketFD = 0;
+        threadParams[i].busy = 0;
+        if (pthread_mutex_init(&threadParams[i].mutex, NULL) != 0)
+        {
             print_log("Thread Params Mutex Initialization failed\n");
             print_log("Terminating...\n");
             exit(-1);
         }
-           
-        if(pthread_cond_init(&threadParams[i].cond,NULL)!=0){
+
+        if (pthread_cond_init(&threadParams[i].cond, NULL) != 0)
+        {
             print_log("Thread Params Condition Variable Initialization failed\n");
             print_log("Terminating...\n");
             exit(-1);
         }
+    }
+}
+
+void sigIntHandler(int sigint)
+{
+    switch (sigint)
+    {
+    case SIGINT:
+        sig_int = 1;
+
+        break;
+
+    default:
+        print_log("UNDEFINED SIGNAL\n JUST IGNORING\n");
+        break;
+    }
+}
+
+void *thread_func(void *args)
+{
+    int id = (int)args;
+    int i = 0;
+    int row_effected = 0;
+    int q_len = 0;
+
+    char wfcMsg[500];
+    sprintf(wfcMsg, "Thead %d is waiting for connection\n", id);
+
+    while (1)
+    {
+        char *line,
+            print_log(wfcMsg);
+
+        if (sig_int == 1)
+            break;
+
+        char query[1024];
+
+        pthread_mutex_lock(&threadParams[id].mutex)
+
+            if (threadParams[id].busy == 0)
+        {
+            while (threadParams[id].busy == 0)
+            {
+                pthread_cond_wait(&threadParams[i], cond, &threadParams[id].mutex);
+                threadParams[id].status = 1;
+            }
+        }
+
+        if (sig_int == 0)
+        {
+            char query_rec_msg[1024];
+            if ((q_len = recv(threadParams[id].socketFD, query, 1024, 0)) < 0)
+            {
+                print_log("Recieve Error\n");
+                print_log("Terminating...\n");
+                exit(-1);
+            }
+
+            query[q_len] = '\0';
+            sprinf(query_rec_msg, "Thread#%d : recieved query \"%s\"", id, query);
+            print_log(query_rec_msg);
+        }
+    }
+}
+
+int sql_parser(char *command, char **res)
+{
+    char *temp = "";
+    int row_eff;
+
+    temp = strtok_r(command, " " & command);
+
+    /* READER PART*/
+    if (strcmp("SELECT", temp) == 0)
+    {
+        res = select_parser(command);
+        row_eff = table_lenght;
+    }/* WRITER PART */
+    else if (strcmp("UPDATE", temp) == 0)
+    {
+        row_eff = update_parser(command);
+    }
+
+    return row_eff;
+}
+
+char **select_parser(char *command)
+{
+    char *temp;
+    char column_name[500] = "";
+    char where_column[100];
+    int distinct_f = 0;
+    int i = 0;
+    while ((temp = strtok_r(command, " ;", &command)))
+    {
+        if (strcmp("DISTINCT", temp) == 0)
+        {
+            distinct_f = 1;
+        }
+        else if (strcmp("*", temp) == 0)
+        {
+            strcpy(column_name, temp);
+        }
+        else if (strcmp("TABLE", temp) == 0)
+        {
+            // fprintf(stderr,"Table Token\n");
+        }
+        else if (strcmp("WHERE", temp) == 0)
+        {
+            memset(temp, 0, strlen(temp));
+            temp = strtok_r(command, ";", &command);
+
+            strcpy(where_column, temp);
+        }
+        else if (strcmp("FROM", temp) == 0)
+        {
+            // fprintf(stderr,"From Token\n");
+        }
+        else
+        {
+            strcat(column_name, temp);
+            // fprintf(stderr,"Column names : %s\n",column_name);
+        }
+
+        memset(temp, 0, strlen(temp));
+    }
+
+    char **res = select_Q(distinct_f, column_name);
+
+    return res;
+}
+
+char **select_Q(int distinct, char *column_name)
+{
+    char **result_table = (char **)calloc(table_lenght, sizeof(char *));
+    char **distinct_table = (char **)calloc(table_lenght, sizeof(char *));
+    int i = 0, j = 0, k = 0;
+
+    for (i = 0; i < table_lenght; i++)
+    {
+        result_table[i] = (char *)calloc(1024, sizeof(char));
+        distinct_table[i] = (char *)calloc(1024, sizeof(char));
+    }
+
+    fflush(stderr);
+    if (strcmp(column_name, "*") == 0)
+    {
+
+        for (i = 0; i < table_lenght; i++)
+        {
+            for (j = 0; j < column_number; j++)
+            {
+                strcat(result_table[i], "\t");
+                strcat(result_table[i], table[j][i]);
+            }
+
+            fprintf(stderr, "%s\n", result_table[i]);
+        }
+    }
+    else if (distinct == 0)
+    {
+
+        char *temp;
+        while ((temp = strtok_r(column_name, ",\n", &column_name)))
+        {
+            int index = 0;
+            /*fprintf(stderr,"TEMP : %s\n",temp);
+            fprintf(stderr,"SAVEPTR : %s\n",column_name);*/
+
+            while (strcmp(temp, table[index][0]) != 0)
+            {
+                /* fprintf(stderr,"Index :%d temp :%s   %s\n",index,temp,table[index][0]);  */
+                index++;
+            }
+
+            for (i = 0; i < table_lenght; i++)
+            {
+                strcat(result_table[i], "\t");
+                strcat(result_table[i], table[index][i]);
+            }
+
+            memset(temp, 0, strlen(temp));
+        }
+    }
+    else if (distinct == 1)
+    {
+        char *temp;
+        int contains_f = 0;
+        while ((temp = strtok_r(column_name, ",\n", &column_name)))
+        {
+            int index = 0;
+            /*fprintf(stderr,"TEMP : %s\n",temp);
+            fprintf(stderr,"SAVEPTR : %s\n",column_name);*/
+
+            while (strcmp(temp, table[index][0]) != 0)
+            {
+                /* fprintf(stderr,"Index :%d temp :%s   %s\n",index,temp,table[index][0]);  */
+                index++;
+            }
+
+            for (i = 0; i < table_lenght; i++)
+            {
+                strcat(distinct_table[i], "\t");
+                strcat(distinct_table[i], table[index][i]);
+            }
+
+            memset(temp, 0, strlen(temp));
+        }
+
+        strcpy(result_table[0], distinct_table[0]);
+        strcpy(result_table[1], distinct_table[1]);
+
+        for (i = 2; i < table_lenght; i++)
+        {
+            for (j = 0; j < i; j++)
+            {
+                if (strcmp(result_table[i], distinct_table[j]) == 0)
+                {
+                    break;
+                }
+            }
+
+            if (i == j)
+            {
+                //fprintf(stderr,"%s\n",result_table[i]);
+                strcpy(result_table[i], distinct_table[j]);
+            }
+        }
+    }
+
+    for (i = 0; i < table_lenght; i++)
+    {
+        free(distinct_table[i]);
+    }
+
+    free(distinct_table);
+    return result_table;
+}
+
+int update_parser(char* command){
+    char *temp;
+    char column_name[500] = "";
+    char where_column[100];
+    int distinc_f = 0;
+    int howManyEntryEffected=0;
+
+    while ((temp = strtok_r(command, " ;", &command)))
+    {
+        if (strcmp("TABLE", temp) == 0)
+        {
+            //fprintf(stderr,"Table Token\n");
+        }
+        else if (strcmp("SET", temp) == 0)
+        {
+            //fprintf(stderr, "Set Token\n");
+        }
+        else if (strcmp("WHERE", temp) == 0)
+        {
+            memset(temp,0,strlen(temp));
+            temp = strtok_r(command, ";", &command);
+
+            //fprintf(stderr,"Where Columns : %s\n",temp);
+            strcpy(where_column, temp);
+        }
+        else
+        {
+            strcat(column_name, temp);
+            //fprintf(stderr,"Column names : %s\n",column_name);
+        }
+
+        memset(temp, 0, strlen(temp));
+    }
+
+
+    howManyEntryEffected = update_Q(column_name,where_column);
+
+    return howManyEntryEffected; 
+}
+
+int update_Q(char* column_name, char* where_column){
+    
+    int effected_row=0;
+    char*temp="";
+    int where_column_index=0;
+    
+    //fprintf(stderr,"Update_Q Where columns: %s\n",where_column);
+    temp=strtok_r(where_column,"=",&where_column);
+    //fprintf(stderr,"Temp columns: %s\n",temp);
+  
+
+    if(where_column[0]=='\'' || where_column[0]==39){
+        where_column++;
+        where_column[strlen(where_column)-1]='\0';
+    }
+    //fprintf(stderr,"Where columns: %s\n",where_column);
+    while(strcmp(table[where_column_index][0],temp) != 0){
+        where_column_index++;
+    }
+
+   //fprintf(stderr,"Where columns index: %d\n",where_column_index);
+
+    while((temp=strtok_r(column_name,",",&column_name))){
+        char* temp_t="";
+        int temp_index=0;
+        int row_count=0;
+        int i=0,j=0; 
+
+        //fprintf(stderr,"TEMP columns: %s\n",temp);
+        temp_t=strtok_r(temp,"=",&temp);
+        //fprintf(stderr,"TEMP_T: %s\n",temp_t);
+
+        if(temp[0]=='\'' || temp[0]==39){
+            
+            temp++;
+            temp[strlen(temp)-1]='\0';
+        } 
+
+        //fprintf(stderr,"TEMP columns: %s\n",temp);
+
+        while(strcmp(table[temp_index][0],temp_t) != 0 && temp_index<column_number){
+            temp_index++;
+        }
+        //fprintf(stderr,"Temp columns index: %d\n",where_column_index);
+
+        for(i=0;i<table_lenght;i++){
+            if(strcmp(table[where_column_index][i],where_column)==0){
+                strcpy(table[temp_index][i],temp);
+                row_count++;
+            }
+        }
+
+        memset(temp,0,strlen(temp));
+        effected_row = row_count;
     }   
+    
+    return effected_row;
 }
