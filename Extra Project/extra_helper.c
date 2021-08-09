@@ -69,11 +69,13 @@ int determinant(int** matrix, int n){
     int det = 0;
     int sign = 1;
     int** temp;
-
+    int i=0;
     
     if(n==1){
         return matrix[0][0];        
     }
 
+    temp = (int**)calloc(n,sizeof(int));
 
+    for(i=0;i<n;i++)
 }
