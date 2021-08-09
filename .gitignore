@@ -13,7 +13,11 @@ helper*
 servers*
 *.log
 program*
-
+*.zip
+*.png
+*.xml
+*.json
+*.gz
 # Object files
 *.o
 *.ko
@@ -64,5 +68,11 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+#tex files
+*.tex
+*.aux
+*.bbl
+*.bcf
+*.blg
 # End of https://www.toptal.com/developers/gitignore/api/c
 

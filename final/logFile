@@ -1,0 +1,301 @@
+2021-06-12 13:00:51 already working
+2021-06-12 13:25:17 Execution with parametes:
+2021-06-12 13:25:17 -p 39999
+2021-06-12 13:25:17 -o logFile
+2021-06-12 13:25:17 -l 4
+2021-06-12 13:25:17 -d ../dataset.csv
+2021-06-12 13:25:17 Loading dataset...
+2021-06-12 13:25:17 Dataset loaded in 0.00 seconds with 21 entries2021-06-12 13:25:17 A pool of 4 threads has been created.
+2021-06-12 13:25:17 Thead 3 is waiting for connection
+2021-06-12 13:25:17 Thead 2 is waiting for connection
+2021-06-12 13:25:17 Thead 1 is waiting for connection
+2021-06-12 13:25:17 Thead 0 is waiting for connection
+2021-06-12 13:25:18 Termination Signal Recieved. waiting for ongoing threads to complete.
+2021-06-12 13:25:52 Execution with parametes:
+2021-06-12 13:25:52 -p 39999
+2021-06-12 13:25:52 -o logFile
+2021-06-12 13:25:52 -l 4
+2021-06-12 13:25:52 -d ../dataset.csv
+2021-06-12 13:25:52 Loading dataset...
+2021-06-12 13:25:52 Dataset loaded in 0.00 seconds with 21 entries2021-06-12 13:25:52 A pool of 4 threads has been created.
+2021-06-12 13:25:52 Socket Binding error 
+2021-06-12 13:25:52 Terminating...2021-06-12 13:25:53 Termination Signal Recieved. waiting for ongoing threads to complete.
+2021-06-12 13:25:53 Join Error
+2021-06-12 13:27:48 already working
+2021-06-12 13:27:49 Termination Signal Recieved. waiting for ongoing threads to complete.
+2021-06-12 13:29:17 already working
+2021-06-12 13:29:18 Termination Signal Recieved. waiting for ongoing threads to complete.
+2021-06-12 13:29:40 already working
+2021-06-12 13:29:41 Termination Signal Recieved. waiting for ongoing threads to complete.
+2021-06-12 13:30:56 Execution with parametes:
+2021-06-12 13:30:56 -p 39999
+2021-06-12 13:30:56 -o logFile
+2021-06-12 13:30:56 -l 4
+2021-06-12 13:30:56 -d ../dataset.csv
+2021-06-12 13:30:56 Loading dataset...
+2021-06-12 13:30:56 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 13:30:56 A pool of 4 threads has been created.
+2021-06-12 13:30:56 Socket Binding error 
+2021-06-12 13:30:56 Terminating...2021-06-12 13:31:53 Execution with parametes:
+2021-06-12 13:31:53 -p 39999
+2021-06-12 13:31:53 -o logFile
+2021-06-12 13:31:53 -l 4
+2021-06-12 13:31:53 -d ../dataset.csv
+2021-06-12 13:31:53 Loading dataset...
+2021-06-12 13:31:53 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 13:31:53 A pool of 4 threads has been created.
+2021-06-12 13:31:53 Socket Binding error 
+2021-06-12 13:31:53 Terminating...2021-06-12 13:32:54 Execution with parametes:
+2021-06-12 13:32:54 -p 39999
+2021-06-12 13:32:54 -o logFile
+2021-06-12 13:32:54 -l 4
+2021-06-12 13:32:54 -d ../dataset.csv
+2021-06-12 13:32:54 Loading dataset...
+2021-06-12 13:32:54 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 13:32:54 A pool of 4 threads has been created.
+2021-06-12 13:32:54 Socket Binding error 
+2021-06-12 13:32:54 Terminating...2021-06-12 13:33:48 Execution with parametes:
+2021-06-12 13:33:48 -p 39999
+2021-06-12 13:33:48 -o logFile
+2021-06-12 13:33:48 -l 4
+2021-06-12 13:33:48 -d ../dataset.csv
+2021-06-12 13:33:48 Loading dataset...
+2021-06-12 13:33:48 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 13:33:48 A pool of 4 threads has been created.
+2021-06-12 13:33:48 Socket Binding error 
+2021-06-12 13:33:48 Terminating...2021-06-12 13:35:00 Execution with parametes:
+2021-06-12 13:35:00 -p 39999
+2021-06-12 13:35:00 -o logFile
+2021-06-12 13:35:00 -l 4
+2021-06-12 13:35:00 -d ../dataset.csv
+2021-06-12 13:35:00 Loading dataset...
+2021-06-12 13:35:00 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 13:35:00 A pool of 4 threads has been created.
+2021-06-12 13:35:00 Socket Binding error 
+2021-06-12 13:35:00 Terminating...2021-06-12 13:36:49 Execution with parametes:
+2021-06-12 13:36:49 -p 39999
+2021-06-12 13:36:49 -o logFile
+2021-06-12 13:36:49 -l 4
+2021-06-12 13:36:49 -d ../dataset.csv
+2021-06-12 13:36:49 Loading dataset...
+2021-06-12 13:36:49 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 13:36:49 A pool of 4 threads has been created.
+2021-06-12 13:36:49 Socket Binding error 
+2021-06-12 13:36:49 Terminating...2021-06-12 13:37:47 Execution with parametes:
+2021-06-12 13:37:47 -p 39999
+2021-06-12 13:37:47 -o logFile
+2021-06-12 13:37:47 -l 4
+2021-06-12 13:37:47 -d ../dataset.csv
+2021-06-12 13:37:47 Loading dataset...
+2021-06-12 13:37:47 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 13:37:47 A pool of 4 threads has been created.
+2021-06-12 13:37:47 Socket Binding error 
+2021-06-12 13:37:47 Terminating...2021-06-12 14:05:35 Execution with parametes:
+2021-06-12 14:05:35 -p 39999
+2021-06-12 14:05:35 -o logFile
+2021-06-12 14:05:35 -l 4
+2021-06-12 14:05:35 -d ../dataset.csv
+2021-06-12 14:05:35 Loading dataset...
+2021-06-12 14:05:35 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 14:05:35 A pool of 4 threads has been created.
+2021-06-12 14:05:35 Socket Binding error 
+2021-06-12 14:05:35 Terminating...2021-06-12 14:17:21 Execution with parametes:
+2021-06-12 14:17:21 -p 39999
+2021-06-12 14:17:21 -o logFile
+2021-06-12 14:17:21 -l 4
+2021-06-12 14:17:21 -d ../dataset.csv
+2021-06-12 14:17:21 Loading dataset...
+2021-06-12 14:17:21 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 14:17:21 A pool of 4 threads has been created.
+2021-06-12 14:17:21 Socket Binding error 
+2021-06-12 14:17:21 Terminating...2021-06-12 14:17:57 Execution with parametes:
+2021-06-12 14:17:57 -p 39999
+2021-06-12 14:17:57 -o logFile
+2021-06-12 14:17:57 -l 4
+2021-06-12 14:17:57 -d ../dataset.csv
+2021-06-12 14:17:57 Loading dataset...
+2021-06-12 14:17:57 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 14:17:57 A pool of 4 threads has been created.
+2021-06-12 14:17:57 Socket Binding error 
+2021-06-12 14:17:57 Terminating...2021-06-12 14:19:31 Execution with parametes:
+2021-06-12 14:19:31 -p 39999
+2021-06-12 14:19:31 -o logFile
+2021-06-12 14:19:31 -l 4
+2021-06-12 14:19:31 -d ../dataset.csv
+2021-06-12 14:19:31 Loading dataset...
+2021-06-12 14:19:31 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 14:19:31 A pool of 4 threads has been created.
+2021-06-12 14:19:31 Socket Binding error 
+2021-06-12 14:19:31 Terminating...2021-06-12 14:44:25 Execution with parametes:
+2021-06-12 14:44:25 -p 39999
+2021-06-12 14:44:25 -o logFile
+2021-06-12 14:44:25 -l 4
+2021-06-12 14:44:25 -d ../dataset.csv
+2021-06-12 14:44:25 Loading dataset...
+2021-06-12 14:44:25 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 14:44:25 A pool of 4 threads has been created.
+2021-06-12 14:44:25 Socket Binding error 
+2021-06-12 14:44:25 Terminating...2021-06-12 14:45:00 Execution with parametes:
+2021-06-12 14:45:00 -p 39999
+2021-06-12 14:45:00 -o logFile
+2021-06-12 14:45:00 -l 4
+2021-06-12 14:45:00 -d ../dataset.csv
+2021-06-12 14:45:00 Loading dataset...
+2021-06-12 14:45:00 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 14:45:00 A pool of 4 threads has been created.
+2021-06-12 14:45:00 Socket Binding error 
+2021-06-12 14:45:00 Terminating...2021-06-12 14:45:37 Execution with parametes:
+2021-06-12 14:45:37 -p 39999
+2021-06-12 14:45:37 -o logFile
+2021-06-12 14:45:37 -l 4
+2021-06-12 14:45:37 -d ../dataset.csv
+2021-06-12 14:45:37 Loading dataset...
+2021-06-12 14:45:37 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 14:45:37 A pool of 4 threads has been created.
+2021-06-12 14:45:37 Socket Binding error 
+2021-06-12 14:45:37 Terminating...2021-06-12 14:55:29 Execution with parametes:
+2021-06-12 14:55:29 -p 39999
+2021-06-12 14:55:29 -o logFile
+2021-06-12 14:55:29 -l 4
+2021-06-12 14:55:29 -d ../dataset.csv
+2021-06-12 14:55:29 Loading dataset...
+2021-06-12 14:55:29 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 14:55:29 A pool of 4 threads has been created.
+2021-06-12 14:55:29 Socket Binding error 
+2021-06-12 14:55:29 Terminating...2021-06-12 14:56:46 Execution with parametes:
+2021-06-12 14:56:46 -p 39999
+2021-06-12 14:56:46 -o logFile
+2021-06-12 14:56:46 -l 4
+2021-06-12 14:56:46 -d ../dataset.csv
+2021-06-12 14:56:46 Loading dataset...
+2021-06-12 14:56:46 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 14:56:46 A pool of 4 threads has been created.
+2021-06-12 14:56:46 Socket Binding error 
+2021-06-12 14:56:46 Terminating...2021-06-12 14:57:44 Execution with parametes:
+2021-06-12 14:57:44 -p 39999
+2021-06-12 14:57:44 -o logFile
+2021-06-12 14:57:44 -l 4
+2021-06-12 14:57:44 -d ../dataset.csv
+2021-06-12 14:57:44 Loading dataset...
+2021-06-12 14:57:44 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 14:57:44 A pool of 4 threads has been created.
+2021-06-12 14:57:44 Socket Binding error 
+2021-06-12 14:57:44 Terminating...2021-06-12 14:58:24 Execution with parametes:
+2021-06-12 14:58:24 -p 39999
+2021-06-12 14:58:24 -o logFile
+2021-06-12 14:58:24 -l 4
+2021-06-12 14:58:24 -d ../dataset.csv
+2021-06-12 14:58:24 Loading dataset...
+2021-06-12 14:58:24 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 14:58:24 A pool of 4 threads has been created.
+2021-06-12 14:58:24 Socket Binding error 
+2021-06-12 14:58:24 Terminating...2021-06-12 14:59:25 Execution with parametes:
+2021-06-12 14:59:25 -p 39999
+2021-06-12 14:59:25 -o logFile
+2021-06-12 14:59:25 -l 4
+2021-06-12 14:59:25 -d ../dataset.csv
+2021-06-12 14:59:25 Loading dataset...
+2021-06-12 14:59:25 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 14:59:25 A pool of 4 threads has been created.
+2021-06-12 14:59:25 Socket Binding error 
+2021-06-12 14:59:25 Terminating...2021-06-12 15:04:25 Execution with parametes:
+2021-06-12 15:04:25 -p 39999
+2021-06-12 15:04:25 -o logFile
+2021-06-12 15:04:25 -l 4
+2021-06-12 15:04:25 -d ../dataset.csv
+2021-06-12 15:04:25 Loading dataset...
+2021-06-12 15:04:25 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 15:04:25 A pool of 4 threads has been created.
+2021-06-12 15:04:25 Socket Binding error 
+2021-06-12 15:04:25 Terminating...2021-06-12 15:05:40 Execution with parametes:
+2021-06-12 15:05:40 -p 39999
+2021-06-12 15:05:40 -o logFile
+2021-06-12 15:05:40 -l 4
+2021-06-12 15:05:40 -d ../dataset.csv
+2021-06-12 15:05:40 Loading dataset...
+2021-06-12 15:05:40 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 15:05:40 A pool of 4 threads has been created.
+2021-06-12 15:05:40 Socket Binding error 
+2021-06-12 15:05:40 Terminating...2021-06-12 15:09:24 Execution with parametes:
+2021-06-12 15:09:24 -p 39999
+2021-06-12 15:09:24 -o logFile
+2021-06-12 15:09:24 -l 4
+2021-06-12 15:09:24 -d ../dataset.csv
+2021-06-12 15:09:24 Loading dataset...
+2021-06-12 15:09:24 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 15:09:24 A pool of 4 threads has been created.
+2021-06-12 15:09:24 Socket Binding error 
+2021-06-12 15:09:24 Terminating...2021-06-12 15:10:19 Execution with parametes:
+2021-06-12 15:10:19 -p 39999
+2021-06-12 15:10:19 -o logFile
+2021-06-12 15:10:19 -l 4
+2021-06-12 15:10:19 -d ../dataset.csv
+2021-06-12 15:10:19 Loading dataset...
+2021-06-12 15:10:19 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 15:10:19 A pool of 4 threads has been created.
+2021-06-12 15:10:19 Socket Binding error 
+2021-06-12 15:10:19 Terminating...2021-06-12 15:12:21 Execution with parametes:
+2021-06-12 15:12:21 -p 39999
+2021-06-12 15:12:21 -o logFile
+2021-06-12 15:12:21 -l 4
+2021-06-12 15:12:21 -d ../dataset.csv
+2021-06-12 15:12:21 Loading dataset...
+2021-06-12 15:12:21 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 15:12:21 A pool of 4 threads has been created.
+2021-06-12 15:12:21 Socket Binding error 
+2021-06-12 15:12:21 Terminating...2021-06-12 15:23:52 Execution with parametes:
+2021-06-12 15:23:52 -p 39999
+2021-06-12 15:23:52 -o logFile
+2021-06-12 15:23:52 -l 4
+2021-06-12 15:23:52 -d ../dataset.csv
+2021-06-12 15:23:52 Loading dataset...
+2021-06-12 15:23:52 Dataset loaded in 0.04 seconds with 21 entries
+2021-06-12 15:23:52 A pool of 4 threads has been created.
+2021-06-12 15:23:52 Thead 3 is waiting for connection
+2021-06-12 15:23:52 Thead 2 is waiting for connection
+2021-06-12 15:23:52 Thead 1 is waiting for connection
+2021-06-12 15:23:52 Thead 0 is waiting for connection
+2021-06-12 15:23:53 A connection has been delegated to thread_id #02021-06-12 15:23:53 A connection has been delegated to thread_id #12021-06-12 15:23:53 A connection has been delegated to thread_id #22021-06-12 15:23:53 A connection has been delegated to thread_id #32021-06-12 15:23:53 No thread is available! waiting...
+2021-06-12 15:23:53 Termination Signal Recieved. waiting for ongoing threads to complete.
+2021-06-12 15:23:53 Thread#3 : recieved query ""2021-06-12 15:24:41 Execution with parametes:
+2021-06-12 15:24:41 -p 39999
+2021-06-12 15:24:41 -o logFile
+2021-06-12 15:24:41 -l 4
+2021-06-12 15:24:41 -d ../dataset.csv
+2021-06-12 15:24:41 Loading dataset...
+2021-06-12 15:24:41 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 15:24:41 A pool of 4 threads has been created.
+2021-06-12 15:24:41 Thead 3 is waiting for connection
+2021-06-12 15:24:41 Thead 2 is waiting for connection
+2021-06-12 15:24:41 Thead 1 is waiting for connection
+2021-06-12 15:24:41 Thead 0 is waiting for connection
+2021-06-12 15:24:42 A connection has been delegated to thread_id #0
+2021-06-12 15:24:42 A connection has been delegated to thread_id #1
+2021-06-12 15:24:42 A connection has been delegated to thread_id #2
+2021-06-12 15:24:42 A connection has been delegated to thread_id #3
+2021-06-12 15:24:42 No thread is available! waiting...
+2021-06-12 15:24:42 Termination Signal Recieved. waiting for ongoing threads to complete.
+2021-06-12 15:24:42 Thread#3 : recieved query ""2021-06-12 15:40:54 Execution with parametes:
+2021-06-12 15:40:54 -p 39999
+2021-06-12 15:40:54 -o logFile
+2021-06-12 15:40:54 -l 4
+2021-06-12 15:40:54 -d ../dataset.csv
+2021-06-12 15:40:54 Loading dataset...
+2021-06-12 15:40:54 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 15:40:54 A pool of 4 threads has been created.
+2021-06-12 15:40:54 Thead 3 is waiting for connection
+2021-06-12 15:40:54 Thead 2 is waiting for connection
+2021-06-12 15:40:54 Thead 1 is waiting for connection
+2021-06-12 15:40:54 Thead 0 is waiting for connection
+2021-06-12 15:40:55 Termination Signal Recieved. waiting for ongoing threads to complete.
+2021-06-12 15:42:58 Execution with parametes:
+2021-06-12 15:42:58 -p 39999
+2021-06-12 15:42:58 -o logFile
+2021-06-12 15:42:58 -l 4
+2021-06-12 15:42:58 -d ../dataset.csv
+2021-06-12 15:42:58 Loading dataset...
+2021-06-12 15:42:58 Dataset loaded in 0.00 seconds with 21 entries
+2021-06-12 15:42:58 A pool of 4 threads has been created.
+2021-06-12 15:42:58 Socket Binding error 
+2021-06-12 15:42:58 Terminating...2021-06-12 15:43:00 Termination Signal Recieved. waiting for ongoing threads to complete.
+2021-06-12 15:43:00 Join Error

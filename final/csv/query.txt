@@ -1,0 +1,4 @@
+1 SELECT * FROM TABLE;
+2 SELECT period, status, population FROM TABLE;
+1 SELECT DISTINCT period,population FROM TABLE;
+2 UPDATE TABLE SET status=’M’, natural_increase='111111' WHERE percent_population_change='0.31';

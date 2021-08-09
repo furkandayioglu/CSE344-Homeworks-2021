@@ -97,7 +97,7 @@ int output_fd;
 
 /* Some Essential*/
 void print_usage();
-void print_log(char *msg, int fd);
+void print_log(char *msg,int fd);
 
 void check_instance();
 int create_daemon();
@@ -105,90 +105,29 @@ int create_daemon();
 void sigIntHandle(int sig);
 static volatile sig_atomic_t sig_int = 0;
 
+char *instance;
+key_t key;
+int shmid;
+
 int main(int argc, char **argv)
 {
-
-    pid_t pid = 0, snw = 0;
-    int opt;
-    char param1[100];
-    char param2[100];
-    char param3[100];
-    char param4[100];
-    char loadMsg[100];
-    char tcMsg[100];
-    int close_fd = 0;
-    int i, j;
-    char socket_ip[] = "127.0.0.1"; /* Run on Local */
-    double time_interval;
-    struct timeval tm1, tm2;
-    struct sockaddr_in serv_adr;
-    char socBuf[1025] = "";
-    int socketFd;
-
-    if (argc != 9)
-    {
-        print_usage();
-        exit(-1);
-    }
-
-    
-
-    while ((opt = getopt(argc, argv, ":p:o:l:d:"))!=-1)
-    {
-
-        switch (opt)
-        {
-            case 'p':
-                port = atoi(optarg);
-                 break;
-            case 'o':
-                pathToLogFile = optarg;
-                break;
-            case 'l':
-                poolSize = atoi(optarg);
-
-                break;
-            case 'd':
-                datasetPath = optarg;
-                break;
-
-            case ':':
-                print_usage();
-                return -1;
-            case '?':
-
-                print_usage();
-                return -1;
-        }
-    }
-
-    
    
 
-    if ((output_fd = open(pathToLogFile, O_WRONLY | O_CREAT | O_EXCL | O_APPEND, 0777)) == -1)
-    {
-        output_fd = open(pathToLogFile, O_WRONLY | O_EXCL | O_APPEND);
-    }
+    pid_t pid = 0, snw = 0;
 
-    if (output_fd == -1)
-    {
-        write(2, "There is no such a file", 23);
-        write(2, pathToLogFile, strlen(pathToLogFile));
-        write(2, "\n", 1);
-    }
-
-
+    /*LOG PATH*/
+  
 
     /*Shared memory usage to prevent multiple instantion*/
-    key_t key = ftok("instances", 65);
-    int shmid = shmget(key, 542, 0666 | IPC_CREAT);
-    char *instance = (char *)shmat(shmid, (void *)0, 0);
+    key = ftok("serverNoSecInstance", 123);
+    shmid = shmget(key, 1024, 0666 | IPC_CREAT);
+    instance = (char *)shmat(shmid, (void *)0, 0);
 
-    /*if (instance[0]=='C' && instance[1]=='W')
+    if (strcmp(instance, "CW") == 0)
     {
-        print_log("already working\n",output_fd);
+        fprintf(stderr,"already working\n");
         exit(-1);
-    }*/
+    }
 
     /* Determine that Currently Working */
     instance[0] = 'C';
@@ -198,7 +137,7 @@ int main(int argc, char **argv)
     pid = fork(); // Create child process
     if (pid < 0)
     { // Check Fail
-        fprintf(stderr, "Fork failed!\n");
+        fprintf(stderr,"Fork failed!\n");
         exit(EXIT_FAILURE);
     }
     if (pid > 0)
@@ -210,7 +149,7 @@ int main(int argc, char **argv)
     if (snw < 0)
     {
 
-        fprintf(stderr, "setsid() error!\n");
+        fprintf(stderr,"setsid() error!\n");
         exit(EXIT_FAILURE);
     }
 
@@ -219,27 +158,83 @@ int main(int argc, char **argv)
     {
 
         /* variables declaration area */
+        int opt;
+        char param1[100];
+        char param2[100];
+        char param3[100];
+        char param4[100];
+        char loadMsg[100];
+        char tcMsg[100];
+        int close_fd = 0;
+        int i, j;
+        char socket_ip[] = "127.0.0.1"; /* Run on Local */
+        double time_interval;
+        struct timeval tm1, tm2;
+        struct sockaddr_in serv_adr;
+        char socBuf[1025] = "";
+        int socketFd;
 
+        if (argc != 9)
+        {
+            print_usage();
+            exit(-1);
+        }
+
+        while ((opt = getopt(argc, argv, ":p:o:l:d:")))
+        {
+
+            switch (opt)
+            {
+            case 'p':
+                port = atoi(optarg);
+                break;
+            case 'o':
+                pathToLogFile = optarg;
+                break;
+            case 'l':
+                poolSize = atoi(optarg);
+
+                break;
+            case 'd':
+                datasetPath = optarg;
+                break;
+            default:
+                fprintf(stderr,"invalid Parameter\n");
+                print_usage();
+                exit(-1);
+                break;
+            }
+        }
+
+        output_fd = open("logfile.log", O_WRONLY | O_CREAT | O_EXCL | O_APPEND, S_IRUSR | S_IWUSR);
+       
+        if (port <= 1000)
+        {
+            print_log("First 1000 ports are being used by kernel.\n",output_fd);
+            print_log("That means, you entered invalid port.\n",output_fd);
+            print_log("Terminating...\n",output_fd);
+            exit(-1);
+        }
         close(STDIN_FILENO); // close inherited files
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
 
-        
+        close(close_fd);
 
         /* Main thread execution params to log file */
-        print_log("Execution with parametes:\n", output_fd);
+        print_log("Execution with parametes:\n",output_fd);
         sprintf(param1, "-p %d\n", port);
-        print_log(param1, output_fd);
+        print_log(param1,output_fd);
         sprintf(param2, "-o %s\n", pathToLogFile);
-        print_log(param2, output_fd);
+        print_log(param2,output_fd);
         sprintf(param3, "-l %d\n", poolSize);
-        print_log(param3, output_fd);
+        print_log(param3,output_fd);
         sprintf(param4, "-d %s\n", datasetPath);
-        print_log(param4, output_fd);
+        print_log(param4,output_fd);
 
         signal(SIGINT, sigIntHandle);
 
-        print_log("Loading dataset...\n", output_fd);
+        print_log("Loading dataset...\n",output_fd);
 
         gettimeofday(&tm1, NULL);
         column_number = number_of_columns(datasetPath);
@@ -264,17 +259,17 @@ int main(int argc, char **argv)
         gettimeofday(&tm2, NULL);
 
         time_interval = (double)(tm2.tv_sec - tm1.tv_sec) + (double)(tm2.tv_usec - tm1.tv_usec) / 1000000;
-        sprintf(loadMsg, "Dataset loaded in %.2f seconds with %d entries\n", time_interval, table_lenght);
-        print_log(loadMsg, output_fd);
+        sprintf(loadMsg, "Dataset loaded in %.2f seconds with %d entries", time_interval, table_lenght);
+        print_log(loadMsg,output_fd);
 
         sprintf(tcMsg, "A pool of %d threads has been created.\n", poolSize);
-        print_log(tcMsg, output_fd);
+        print_log(tcMsg,output_fd);
 
         for (i = 0; i < poolSize; i++)
         {
             if (pthread_create(&pool_threads[i], NULL, thread_func, (void *)i) != 0)
             {
-                print_log("Thread Creation failed\n", output_fd);
+                print_log("Thread Creation failed\n",output_fd);
                 exit(-1);
             }
         }
@@ -287,8 +282,8 @@ int main(int argc, char **argv)
 
         if ((socketFd = socket(AF_INET, SOCK_STREAM, 0) < 0))
         {
-            print_log("Socket Initialization failed \n", output_fd);
-            print_log("Terminating....\n", output_fd);
+            print_log("Socket Initialization failed \n",output_fd);
+            print_log("Terminating....\n",output_fd);
             exit(-1);
         }
 
@@ -298,15 +293,15 @@ int main(int argc, char **argv)
 
         if ((bind(socketFd, (struct sockaddr *)&serv_adr, sizeof(serv_adr))) < 0)
         {
-            print_log("Socket Binding error \n", output_fd);
-            print_log("Terminating...", output_fd);
+            print_log("Socket Binding error \n",output_fd);
+            print_log("Terminating...",output_fd);
             exit(-1);
         }
 
         if ((listen(socketFd, 20)) < 0)
         {
-            print_log("Listen Error\n", output_fd);
-            print_log("Terminating...\n", output_fd);
+            print_log("Listen Error\n",output_fd);
+            print_log("Terminating...\n",output_fd);
             exit(-1);
         }
 
@@ -329,8 +324,8 @@ int main(int argc, char **argv)
                     threadParams[i].socketFD = accept_fd;
                     pthread_cond_signal(&threadParams[i].cond);
 
-                    sprintf(threadMsg, "A connection has been delegated to thread_id #%d\n", i);
-                    print_log(threadMsg, output_fd);
+                    sprintf(threadMsg, "A connection has been delegated to thread_id #%d", i);
+                    print_log(threadMsg,output_fd);
 
                     threadFound = 1;
                 }
@@ -340,16 +335,12 @@ int main(int argc, char **argv)
             if (threadFound == 0)
             {
                 char noTMSG[] = "No thread is available! waiting...\n";
-                print_log(noTMSG, output_fd);
+                print_log(noTMSG,output_fd);
             }
 
             if (sig_int == 1)
                 break;
         }
-
-        instance[0] = 'N';
-        instance[1] = 'O';
-        /* Destroy Shared Memory */
 
         for (i = 0; i < poolSize; i++)
         {
@@ -374,20 +365,15 @@ int main(int argc, char **argv)
 
         /*Close Log File*/
         close(output_fd);
-
-        shmdt(instance);
-        return 0;
     }
 
-    instance[0] = 'N';
-    instance[1] = 'O';
     /* Destroy Shared Memory */
     shmdt(instance);
     return 0;
 }
 
 /* initialization functions*/
-void print_log(char *msg, int fd)
+void print_log(char *msg,int fd)
 {
     char buffer[500];
 
@@ -402,10 +388,10 @@ void print_log(char *msg, int fd)
 
 void print_usage()
 {
-    fprintf(stderr, "#USAGE#\n");
-    fprintf(stderr, "Invalid amount of parameters\n");
-    fprintf(stderr, "server -p PORT -o PathToLogFile -l poolSize -d datasetPath\n");
-    fprintf(stderr, "Terminating...\n");
+    fprintf(stderr,"#USAGE#\n");
+    fprintf(stderr,"Invalid amount of parameters\n");
+    fprintf(stderr,"server -p PORT -o PathToLogFile -l poolSize -d datasetPath\n");
+    fprintf(stderr,"Terminating...\n");
 }
 
 int number_of_columns(char *filename)
@@ -419,8 +405,8 @@ int number_of_columns(char *filename)
 
     if (input == NULL)
     {
-        print_log("Dataset File could not be opened\n", output_fd);
-        print_log("Terminating...\n", output_fd);
+        print_log("Dataset File could not be opened\n",output_fd);
+        print_log("Terminating...\n",output_fd);
         exit(-1);
     }
 
@@ -447,8 +433,8 @@ int line_number(char *filename)
 
     if (input == NULL)
     {
-        print_log("Dataset File could not be opened\n", output_fd);
-        print_log("Terminating...\n", output_fd);
+        print_log("Dataset File could not be opened\n",output_fd);
+        print_log("Terminating...\n",output_fd);
         exit(-1);
     }
 
@@ -470,8 +456,8 @@ void read_csv_file(char *filename)
 
     if (input == NULL)
     {
-        print_log("DatasetFile could not be opened\n", output_fd);
-        print_log("Terminating....\n", output_fd);
+        print_log("DatasetFile could not be opened\n",output_fd);
+        print_log("Terminating....\n",output_fd);
         exit(-1);
     }
 
@@ -520,15 +506,15 @@ void threadP_Array()
         threadParams[i].busy = 0;
         if (pthread_mutex_init(&threadParams[i].mutex, NULL) != 0)
         {
-            print_log("Thread Params Mutex Initialization failed\n", output_fd);
-            print_log("Terminating...\n", output_fd);
+            print_log("Thread Params Mutex Initialization failed\n",output_fd);
+            print_log("Terminating...\n",output_fd);
             exit(-1);
         }
 
         if (pthread_cond_init(&threadParams[i].cond, NULL) != 0)
         {
-            print_log("Thread Params Condition Variable Initialization failed\n", output_fd);
-            print_log("Terminating...\n", output_fd);
+            print_log("Thread Params Condition Variable Initialization failed\n",output_fd);
+            print_log("Terminating...\n",output_fd);
             exit(-1);
         }
     }
@@ -542,24 +528,24 @@ void sigIntHandle(int sigint)
     case SIGINT:
         sig_int = 1;
 
-        print_log("Termination Signal Recieved. waiting for ongoing threads to complete.\n", output_fd);
+        print_log("Termination Signal Recieved. waiting for ongoing threads to complete.\n",output_fd);
         for (i = 0; i < poolSize; i++)
         {
             int join;
             if (threadParams[i].busy == 0)
             {
                 threadParams[i].busy = 1;
-                pthread_cond_wait(&threadParams[i].cond, &threadParams[i].mutex);
+                pthread_cond_wait(&threadParams[i].cond,&threadParams[i].mutex);
             }
 
             join = pthread_join(pool_threads[i], NULL);
             if (join != 0)
             {
-                print_log("Join Error\n", output_fd);
+                print_log("Join Error\n",output_fd);
             }
         }
-        print_log("ALL threads joined\n", output_fd);
-
+        print_log("ALL threads joined\n",output_fd);
+        shmdt(instance);
         free(threadParams);
         free(pool_threads);
 
@@ -576,11 +562,11 @@ void sigIntHandle(int sigint)
         }
         free(table);
 
-        kill(getpid(), SIGKILL);
+        kill(getpid(),SIGKILL);
         break;
 
     default:
-        print_log("UNDEFINED SIGNAL\n JUST IGNORING\n", output_fd);
+        print_log("UNDEFINED SIGNAL\n JUST IGNORING\n",output_fd);
         break;
     }
 }
@@ -589,21 +575,25 @@ void *thread_func(void *args)
 {
     int id = (int)args;
     //int i = 0;
-    // int row_effected = 0;
+   // int row_effected = 0;
+   
 
     char wfcMsg[500];
     sprintf(wfcMsg, "Thead %d is waiting for connection\n", id);
 
     while (1)
     {
-        print_log(wfcMsg, output_fd);
+        print_log(wfcMsg,output_fd);
 
+        
+            
         if (sig_int == 1)
             break;
+       
 
         pthread_mutex_lock(&threadParams[id].mutex);
 
-        if (threadParams[id].busy == 0)
+            if (threadParams[id].busy == 0)
         {
             while (threadParams[id].busy == 0)
             {
@@ -613,21 +603,21 @@ void *thread_func(void *args)
         }
 
         if (sig_int == 0)
-        {
+        {   
             usleep(500000);
             int q_len = 0;
             char query[500];
             char query_rec_msg[1024];
             if ((q_len = recv(threadParams[id].socketFD, query, 1024, 0)) < 0)
             {
-                print_log("Recieve Error\n", output_fd);
-                print_log("Terminating...\n", output_fd);
+                print_log("Recieve Error\n",output_fd);
+                print_log("Terminating...\n",output_fd);
                 exit(-1);
             }
 
             query[q_len] = '\0';
             sprintf(query_rec_msg, "Thread#%d : recieved query \"%s\"", id, query);
-            print_log(query_rec_msg, output_fd);
+            print_log(query_rec_msg,output_fd);
 
             sql_parser(id, query);
 
@@ -720,7 +710,7 @@ void select_Q(int tid, int distinct, char *column_name)
     pthread_mutex_unlock(&mutex);
     char **result_table = (char **)calloc(table_lenght, sizeof(char *));
     char **distinct_table = (char **)calloc(table_lenght, sizeof(char *));
-    int i = 0, j = 0; //k = 0;
+    int i = 0, j = 0;//k = 0;
 
     for (i = 0; i < table_lenght; i++)
     {
@@ -815,7 +805,9 @@ void select_Q(int tid, int distinct, char *column_name)
 
     char selectmsg[500];
     sprintf(selectmsg, "Thread#%d : query completed %d records have been returned\n", tid, table_lenght);
-    print_log(selectmsg, output_fd);
+    print_log(selectmsg,output_fd);
+
+    
 
     memset(selectmsg, 0, strlen(selectmsg));
     sprintf(selectmsg, "%d", table_lenght);
@@ -849,7 +841,7 @@ void update_parser(int tid, char *command)
     char column_name[500] = "";
     char where_column[100];
     //int distinc_f = 0;
-    // int howManyEntryEffected = 0;
+   // int howManyEntryEffected = 0;
 
     while ((temp = strtok_r(command, " ;", &command)))
     {
@@ -878,7 +870,7 @@ void update_parser(int tid, char *command)
         memset(temp, 0, strlen(temp));
     }
 
-    update_Q(tid, column_name, where_column);
+    update_Q(tid,column_name, where_column);
 
     //return howManyEntryEffected;
 }
@@ -922,7 +914,7 @@ void update_Q(int tid, char *column_name, char *where_column)
         char *temp_t = "";
         int temp_index = 0;
         int row_count = 0;
-        int i = 0; // j = 0;
+        int i = 0;// j = 0;
 
         //fprintf(stderr,"TEMP columns: %s\n",temp);
         temp_t = strtok_r(temp, "=", &temp);
@@ -958,7 +950,7 @@ void update_Q(int tid, char *column_name, char *where_column)
 
     char updatemsg[500];
     sprintf(updatemsg, "Thread#%d: query completed. %d records updated\n", tid, effected_row);
-    print_log(updatemsg, output_fd);
+    print_log(updatemsg,output_fd);
 
     write(threadParams[tid].socketFD, "1", 2);
     write(threadParams[tid].socketFD, updatemsg, strlen(updatemsg));
