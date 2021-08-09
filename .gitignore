@@ -9,7 +9,7 @@ bunedu.c
 plus_count.c
 output.txt
 helper*
-*.csv
+
 servers*
 *.log
 program*
