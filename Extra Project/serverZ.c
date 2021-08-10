@@ -82,7 +82,7 @@ int main(int argc, char** argv){
 
     sigaction(SIGINT,&sa,NULL);
 
-    if (argc != 7)
+    if (argc != 9)
     {
         print_usage();
         print_ts("Terminating...\n");
