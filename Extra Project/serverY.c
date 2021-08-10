@@ -30,14 +30,31 @@
 
 /* Data Structures */
 
+typedef struct threadPoolY_t{
+    int id;
+    int status;
+    int socketfd;
+}threadPoolY_t;
 
-
-
+typedef struct threadPoolZ_t{
+    int id;
+    int status;
+    int socketfd;
+    int zsocketfd;
+}threadPoolZ_t;
 
 /* Wait Queue */
 
+typedef struct node_t{
+    int client_pid;
+    int matrix_size;
+    node_t* next;
+}node_t;
 
-
+typedef struct waitqueue_t{
+    node_t* head;
+    node_t* tail;
+}waitqueue_t;
 
 
 /* Thread Function */
@@ -53,7 +70,7 @@ void pool2_func();
    https://www.geeksforgeeks.org/determinant-of-a-matrix/ */
 
 void cofactors(int** matrix, int** temp, int size, int i, int j);
-void determinant(int** matrix,int size);
+int determinant(int** matrix,int size);
 
 
 
@@ -82,6 +99,20 @@ int pool2_size;
 int port;
 int sleep_dur;
 
+int logFD;
+
+int main(int argc, char** argv){
 
 
-int main(int argc, char** argv){}
+
+}
+
+
+void cofactor(int** matrix,int** temp,int size,int i, int j){
+
+
+}
+
+int determinant(int**matrix, int size){
+
+}

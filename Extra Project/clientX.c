@@ -183,6 +183,25 @@ int main(int argc, char**argv){
     return 0;
 }
 
+void print_ts(char* msg){
+    char buffer[500];
+
+    struct tm *currentTime;
+    time_t timeCurrent = time(0);
+    currentTime = gmtime(&timeCurrent);
+
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S ", currentTime);
+    strcat(buffer, msg);
+    write(2, buffer, strlen(buffer));
+
+}
+
+void print_usage(){
+    print_ts("##USAGE##\n");
+    print_ts("Invalid Amount of parameter\n");
+    print_ts("./clientX -i ID -a 127.0.0.1 -p PORT -o pathToDataFile\n");
+}
+
 int dim_size(char* filename){
     int count=0;
     char temp,temp_pr;
@@ -238,21 +257,3 @@ void fill_matrix(char* filename){
     fclose(input);
 }
 
-void print_ts(char* msg){
-    char buffer[500];
-
-    struct tm *currentTime;
-    time_t timeCurrent = time(0);
-    currentTime = gmtime(&timeCurrent);
-
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S ", currentTime);
-    strcat(buffer, msg);
-    write(2, buffer, strlen(buffer));
-
-}
-
-void print_usage(){
-    print_ts("##USAGE##\n");
-    print_ts("Invalid Amount of parameter\n");
-    print_ts("./clientX -i ID -a 127.0.0.1 -p PORT -o pathToDataFile\n");
-}
