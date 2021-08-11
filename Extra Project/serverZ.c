@@ -73,8 +73,9 @@ int sleep_dur;
 sem_t pool_full;
 sem_t invertible_counter;
 sem_t non_invertible_counter;
-int logFD;
 
+int logFD;
+int sockFD;
 
 int main(int argc, char** argv){
 
@@ -168,7 +169,17 @@ int main(int argc, char** argv){
 
     /* Clean the mess */
 
+    for(i=0; i<pool_size;i++){
+        void * ptr = NULL;
+        int stat;
+		stat=pthread_join(pool[i],&ptr); 						
+		if(stat!=0) 
+			print_ts(" Error p_thread Join");
+    }
 
+    close(sockFD);
+    close(logFD);
+    free(threadParams);
 
     return 0;
 }
@@ -273,4 +284,11 @@ void *pool_func(void* arg){
     int i=0,j=0;
     int** matrix;
     int id = (int) arg;
+
+    char msg[100];
+	sprintf(msg,"Z: Thread #%d: waiting for connection\n",id);
+    print_ts(msg);
+
+
+
 }
