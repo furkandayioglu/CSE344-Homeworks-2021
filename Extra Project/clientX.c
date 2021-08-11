@@ -164,11 +164,22 @@ int main(int argc, char**argv){
     }
 
     char msg1[1024];
-    sprintf(msg1, "Client #%d (%c:%d, %c) is submitting %dx%d matrix\n", id_int, ipAddr, port,filePath,size);
+    sprintf(msg1, "Client #%d (%s:%d, %s) is submitting %dx%d matrix\n", id_int, ipAddr, port,filePath,size);
     print_ts(msg1);
 
+    /* send id*/
+    
+
+    /* send size*/
 
 
+    /* send matrix*/
+
+
+    /* waiting queue status*/
+
+
+    /* invertible */
 
 
 

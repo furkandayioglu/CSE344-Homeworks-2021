@@ -72,7 +72,7 @@ void pool2_func();
 void cofactors(int** matrix, int** temp, int size, int i, int j);
 int determinant(int** matrix,int size);
 void signal_handler(int signo);
-
+void check_instance();
 
 /* Helpers */ 
 
@@ -101,27 +101,22 @@ int sleep_dur;
 
 int logFD;
 
+int serverZ_pid;
+
 int main(int argc, char** argv){
 
     int opt;
     int i;
-
-
-    if(argc != 11){
-        print_usage();
-        print_ts("Terminating...\n");
-        exit(-1);
-    }
-
-        struct sigaction sa;
+    struct sigaction sa;
     
     memset(&sa,0,sizeof(sa));
     sa.sa_handler=&signal_handler;
 
     sigaction(SIGINT,&sa,NULL);
 
-    if (argc != 9)
-    {
+    check_instance();    
+
+     if(argc != 11){
         print_usage();
         print_ts("Terminating...\n");
         exit(-1);
@@ -170,9 +165,41 @@ int main(int argc, char** argv){
     }
 
 
+  
 
 
     /* Daemonize*/
+
+    
+
+    /* Sockets*/
+
+
+    /*Start Server Z */
+    
+    /* get serverZ Pid*/
+
+
+    /* Create Threads and initiliaze Thread Pool */  
+
+
+
+
+
+    /* Main thread */
+
+
+
+
+
+
+
+
+
+
+    /* clean mess */
+
+
 
 
 
@@ -197,6 +224,19 @@ void print_usage()
     print_ts("##USAGE##\n");
     print_ts("Invalid Amount of parameter\n");
     print_ts("./client -i ID -a 127.0.0.1 -p PORT -o pathToQueryFile\n");
+}
+
+void check_instance(){
+    int pid_file = open("/tmp/serverY.pid", O_CREAT | O_RDWR,0666);
+    int res = flock(pid_file, LOCK_EX | LOCK_NB);
+
+    if(res){
+        if(EAGAIN == errno){
+            print_ts("Server Y already running...\n");
+            print_ts("Terminating...\n");
+            exit(-1);
+        }
+    }
 }
 
 void cofactor(int** matrix,int** temp,int size,int i, int j){
