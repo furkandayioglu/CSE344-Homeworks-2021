@@ -103,13 +103,13 @@ int main()
     }
 
     printf("Client ID  : %d\n",client_id);
-    if( write(sockfd, &client_id , sizeof(client_id)) < 0)
+    if( send(sockfd, &client_id , sizeof(client_id),0) < 0)
     {
             printf("ID Send failed\n");
     }
 
     printf("Matrix Size  : %d\n",matrix_size);
-    if( write(sockfd,&matrix_size , sizeof(matrix_size)) < 0)
+    if( send(sockfd,&matrix_size , sizeof(matrix_size),0) < 0)
     {
             printf("Size Send failed\n");
     }
@@ -124,7 +124,7 @@ int main()
             temp = matrix[i][j];
             printf("temp = %d   matrix[%d][%d] Sending \n",temp, i,j);
 
-            if( write(sockfd,&temp, sizeof(temp)) < 0)
+            if( send(sockfd,&temp, sizeof(temp),0) < 0)
             {
                 printf("temp = %d   matrix[%d][%d] Send failed\n",temp, i,j);
             }

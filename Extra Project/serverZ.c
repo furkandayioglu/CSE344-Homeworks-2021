@@ -144,7 +144,7 @@ int main(int argc, char** argv){
    
     
     char msg_srv_init[513];
-    sprintf(msg_srv_init,"Z:Server Z (127.0.0.0:%d, %s, t=%d, m=%d) started\n",port,logFile,sleep_dur,pool_size);
+    sprintf(msg_srv_init,"Z:Server Z (127.0.0.1:%d, %s, t=%d, m=%d) started\n",port,logFile,sleep_dur,pool_size);
     print_ts(msg_srv_init);
 
     /* Create threads */

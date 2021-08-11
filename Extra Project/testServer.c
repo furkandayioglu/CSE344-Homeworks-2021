@@ -20,10 +20,10 @@ void func(int sockfd)
     int ** matrix;
     int read_size=0;
    
-    read(sockfd,&client_id,sizeof(client_id));
+    recv(sockfd,&client_id,sizeof(client_id),0);
     printf("Client ID  : %d\n",client_id);
 
-    read(sockfd,&matrix_size,sizeof(matrix_size));
+    recv(sockfd,&matrix_size,sizeof(matrix_size),0);
     printf("Client Matrix Size : %d\n",matrix_size);
 
     matrix = (int**) calloc(matrix_size,sizeof(int*));
@@ -34,7 +34,7 @@ void func(int sockfd)
 
     for(int i=0;i<matrix_size;i++){        
         for(int j=0;j<matrix_size;j++){
-            read(sockfd,&temp,sizeof(temp));
+            recv(sockfd,&temp,sizeof(temp),0);
             matrix[i][j]=temp;
             printf("%d ",matrix[i][j]);
         }

@@ -147,7 +147,7 @@ int main(int argc, char**argv){
     memset(responseBuff, '0', sizeof(responseBuff));
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
-        print_ts("\n Socker Createion failed \n");
+        print_ts("\n Socket Createion failed \n");
         print_ts("\n Terminating... \n");
         exit(-1);
     }
@@ -160,6 +160,7 @@ int main(int argc, char**argv){
     if (inet_pton(AF_INET, ipAddr, &serv_addr.sin_addr) <= 0)
     {
         print_ts("\n inet_pton error occured\n");
+        print_ts("\n Terminating... \n");
         exit(-1);
     }
 
@@ -167,16 +168,34 @@ int main(int argc, char**argv){
     sprintf(msg1, "Client #%d (%s:%d, %s) is submitting %dx%d matrix\n", id_int, ipAddr, port,filePath,size);
     print_ts(msg1);
 
+    // connect the client socket to server socket
+    if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) != 0) {
+        print_ts("connection with the server failed...\n");
+        print_ts("\n Terminating... \n");
+        exit(-1);
+    }
+   
     /* send id*/
-    
+    if( send(sockfd, &id_int , sizeof(id_int),0) < 0)
+    {
+        print_ts("ID Send failed\n");
+        print_ts("\n Terminating... \n");
+        exit(-1);
+    }
 
     /* send size*/
+    if( send(sockfd, &size , sizeof(size),0) < 0)
+    {
+        print_ts("ID Send failed\n");
+        print_ts("\n Terminating... \n");
+        exit(-1);
+    }
+
+    /* waiting queue status*/
+
 
 
     /* send matrix*/
-
-
-    /* waiting queue status*/
 
 
     /* invertible */
