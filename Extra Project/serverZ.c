@@ -72,7 +72,7 @@ int pool_size;
 int port;
 int sleep_dur;
 
-int sig_int_flag=0;
+static volatile sig_atomic_t sig_int_flag=0;
 /* counter  */
 atomic_int pool_full=0;
 atomic_int total_rec=0;
@@ -188,6 +188,14 @@ int main(int argc, char** argv){
                 exit(-1);
             }
     }
+    if(pthread_mutex_init(&main_mutex,NULL)!=0){								// initialize mutex and condition variables
+		print_ts("main mutex initialize failed!!!. Program will finish.");
+		exit(-1);
+	}
+    if(pthread_mutex_init(&full_mutex,NULL)!=0){								// initialize mutex and condition variables
+		print_ts("full mutex initialize failed!!!. Program will finish.");
+		exit(-1);
+	}
     threadPool_init();
 
     /* Main Thread */
@@ -206,7 +214,6 @@ int main(int argc, char** argv){
                 
             }
         }
-
         pthread_mutex_unlock(&main_mutex);
 
        if(sig_int_flag==1){
