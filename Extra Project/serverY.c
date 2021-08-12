@@ -27,20 +27,26 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <stdatomic.h>
 
 /* Data Structures */
 
 typedef struct threadPoolY_t{
     int id;
+    int full;
     int status;
     int socketfd;
+    pthread_mutex_t mutex;
+    
 }threadPoolY_t;
 
 typedef struct threadPoolZ_t{
     int id;
     int status;
+    int full;
     int socketfd;
     int zsocketfd;
+    pthread_mutex_t mutex;
 }threadPoolZ_t;
 
 /* Wait Queue */
@@ -59,8 +65,8 @@ typedef struct waitqueue_t{
 
 /* Thread Function */
 
-void pool1_func();
-void pool2_func();
+void *pool1_func(void* arg);
+void *pool2_func(void* arg);
 
 
 
@@ -78,19 +84,26 @@ void check_instance();
 
 void print_ts(char *msg);
 void print_usage();
-
+void threadParams_init();
+threadPoolY_t* threadParamsY;
+threadPoolZ_t* threadParamsZ;
 
 /* Variables */
 
 pthread_t* pool1;
 pthread_t* pool2;
+pthread_mutex_t main_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t pool1_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t pool2_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
-/* counter semaphores */
-sem_t pool1_full;
-sem_t pool2_full;
-sem_t invertible_counter;
-sem_t non_invertible_counter;
+/* counter  */
+atomic_int pool1_full=0;
+atomic_int pool2_full=0;
+atomic_int invertible_counter;
+atomic_int non_invertible_counter;
+
+
 
 char* ipAddr;
 char* logFile;
@@ -182,6 +195,27 @@ int main(int argc, char** argv){
 
     /* Create Threads and initiliaze Thread Pool */  
 
+    pool1 = (pthread_t *)calloc(pool1_size, sizeof(pthread_t));
+    threadParamsY = (threadPoolY_t *)calloc(pool1_size, sizeof(threadPoolY_t));
+    for(int i=0;i<pool1_size;i++){
+        if (pthread_create(&pool1[i], NULL, pool1_func, (void *)i) != 0)
+            {
+                print_ts("Thread Creation failed\n");
+                exit(-1);
+            }
+    }
+
+    pool2 = (pthread_t *)calloc(pool2_size, sizeof(pthread_t));
+    threadParamsZ = (threadPoolZ_t *)calloc(pool2_size, sizeof(threadPoolZ_t));
+    for(int i=0;i<pool2_size;i++){
+        if (pthread_create(&pool2[i], NULL, pool2_func, (void *)i) != 0)
+            {
+                print_ts("Thread Creation failed\n");
+                exit(-1);
+            }
+    }
+
+    threadParams_init();
 
 
 
@@ -239,6 +273,30 @@ void check_instance(){
     }
 }
 
+void threadParams_init(){
+    for(int i=0;i<pool1_size;i++){
+        threadParamsY[i].id=i;
+        threadParamsY[i].status=0;
+        threadParamsY[i].full = 0;
+        threadParamsY[i].socketfd=0;
+        if(pthread_mutex_init(&threadParamsY[i].mutex,NULL)!=0){								// initialize mutex and condition variables
+			print_ts("Mutex initialize failed!!!. Terminating...");
+			exit(-1);
+		}
+    }
+
+    for(int i=0;i<pool2_size;i++){
+        threadParamsZ[i].id=i;
+        threadParamsZ[i].status=0;
+        threadParamsZ[i].full = 0;
+        threadParamsZ[i].socketfd=0;
+        if(pthread_mutex_init(&threadParamsZ[i].mutex,NULL)!=0){								// initialize mutex and condition variables
+			print_ts("Mutex initialize failed!!!. Terminating...");
+			exit(-1);
+		}
+    }
+}
+
 void cofactor(int** matrix,int** temp,int size,int i, int j){
     int temp_i = 0, temp_j=0;
     int row=0, col=0;
@@ -291,3 +349,7 @@ int determinant(int**matrix, int size){
     return det;
 
 }
+
+void* pool1_func(void* arg){}
+
+void* pool2_func(void* arg){}
