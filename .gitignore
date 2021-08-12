@@ -10,7 +10,8 @@ plus_count.c
 output.txt
 helper*
 testClient.*
-testServer*
+testServer.*
+extra_helper.*
 tclnt
 tsvr
 servers*
