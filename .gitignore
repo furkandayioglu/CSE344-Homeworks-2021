@@ -9,7 +9,10 @@ bunedu.c
 plus_count.c
 output.txt
 helper*
-
+testClient.*
+testServer*
+tclnt
+tsvr
 servers*
 *.log
 program*

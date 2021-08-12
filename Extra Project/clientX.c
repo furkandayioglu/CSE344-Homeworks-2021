@@ -74,7 +74,7 @@ int main(int argc, char**argv){
     int opt;
     int i=0;
     struct sigaction sa;
-    
+    char rspMsg[513];
     memset(&sa,0,sizeof(sa));
     sa.sa_handler=&signal_handler;
 
@@ -174,6 +174,15 @@ int main(int argc, char**argv){
         print_ts("\n Terminating... \n");
         exit(-1);
     }
+
+    /*time initialize */
+    struct timeval  tm1, tm2;
+    gettimeofday(&tm1, NULL);
+
+    /* waiting queue status*/
+
+
+
    
     /* send id*/
     if( send(sockfd, &id_int , sizeof(id_int),0) < 0)
@@ -191,15 +200,34 @@ int main(int argc, char**argv){
         exit(-1);
     }
 
-    /* waiting queue status*/
-
-
-
+  
     /* send matrix*/
 
+    for(int i=0;i<size;i++){
+        for(int j=0;j<size;j++){
+            int temp = matrix[i][j];
+            if( send(sockfd,&temp, sizeof(temp),0) < 0)
+            {
+                print_ts(" Matrix Send failed\n");
+                print_ts("\n Terminating... \n");
+                exit(-1);
+            }
+
+        }
+    }
+
+   
 
     /* invertible */
 
+    recv(sockfd,&response,sizeof(response),0);
+    gettimeofday(&tm2,NULL);
+    double totaltime = (double) (tm2.tv_usec - tm1.tv_usec) / 1000000 +(double) (tm2.tv_sec - tm1.tv_sec);
+    if(response==0){
+        sprintf(rspMsg,"Client #%d : the matrix is non-invertible, total time %.1f seconds, exiting...\n",id_int,totaltime);
+    }else{
+        sprintf(rspMsg,"Client #%d : the matrix is invertible, total time %.1f seconds, exiting...\n",id_int,totaltime);
+    }
 
 
     /* Free matrix */

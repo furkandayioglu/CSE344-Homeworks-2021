@@ -32,6 +32,7 @@ typedef struct threadPool_t{
     int id;
     int status;
     int socketfd;
+    pthread_mutex_t mutex;
 }threadPool_t;
 
 
@@ -61,21 +62,23 @@ void check_instance();
 
 pthread_t* pool;
 threadPool_t* threadParams; /* Threads parameters */ 
-pthread_mutex_t main_mutex; /* In order to create critical region to write into file*/
+pthread_mutex_t main_mutex = PTHREAD_MUTEX_INITIALIZER; /* In order to create critical region to write into file*/
+pthread_mutex_t full_mutex = PTHREAD_MUTEX_INITIALIZER; /* find available thread */ 
 
-/*char* ipAddr;*/
+
 char* logFile;
 int pool_size;
 int port;
 int sleep_dur;
 
+int sig_int_flag=0;
 /* counter semaphores */
 sem_t pool_full;
 sem_t invertible_counter;
 sem_t non_invertible_counter;
 
 int logFD;
-int sockFD;
+int socketfd;
 
 int main(int argc, char** argv){
 
@@ -142,10 +145,36 @@ int main(int argc, char** argv){
 
 
    
-    
+    /* server creation */ 
+    struct sockaddr_in serv_addr;
+    memset(&serv_addr, '0', sizeof(serv_addr));
+    if((socketfd = socket(AF_INET, SOCK_STREAM, 0))<0){		// socket initialize
+	    print_ts("socket error!\n");
+        print_ts("Terminating...\n");
+	    exit(-1);
+    }
+    serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	serv_addr.sin_port = htons(port); 
+
+	if((bind(socketfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) < 0){	// bind socket
+	    print_ts("bind error!\n");
+        print_ts("Terminating...\n");	
+	    exit(-1);
+	}
+
+    if((listen(socketfd, 20)) < 0){			// listen socket
+	    print_ts("listen error!\n");
+        print_ts("Terminating...\n");
+	    exit(-1);
+	}
+
     char msg_srv_init[513];
     sprintf(msg_srv_init,"Z:Server Z (127.0.0.1:%d, %s, t=%d, m=%d) started\n",port,logFile,sleep_dur,pool_size);
     print_ts(msg_srv_init);
+
+
+
 
     /* Create threads */
     pool = (pthread_t *)calloc(pool_size, sizeof(pthread_t));
@@ -159,12 +188,16 @@ int main(int argc, char** argv){
     }
     threadPool_init();
 
-    /* Sockets */
-
-
-
     /* Main Thread */
+    while (1){
 
+        socklen_t socket_len = sizeof(serv_addr);
+        int acceptfd = accept(socketfd,(struct sockaddr*)&serv_addr,&socket_len);
+
+
+
+
+    }
 
 
     /* Clean the mess */
@@ -177,7 +210,7 @@ int main(int argc, char** argv){
 			print_ts(" Error p_thread Join");
     }
 
-    close(sockFD);
+    close(socketfd);
     close(logFD);
     free(threadParams);
 
@@ -222,6 +255,10 @@ void threadPool_init(){
         threadParams[i].id=i;
         threadParams[i].status=0;
         threadParams[i].socketfd=0;
+        if(pthread_mutex_init(&threadParams[i].mutex,NULL)!=0){								// initialize mutex and condition variables
+			print_ts("mutex initialize failed!!!. Program will finish.");
+			exit(-1);
+		}
     }
 
 }
@@ -284,11 +321,18 @@ void *pool_func(void* arg){
     int i=0,j=0;
     int** matrix;
     int id = (int) arg;
-
+    
     char msg[100];
 	sprintf(msg,"Z: Thread #%d: waiting for connection\n",id);
     print_ts(msg);
 
+    while(1){
+        print_ts(msg);
+        if(sig_int_flag == 1){
+            break;
+        }
 
+
+    }
 
 }
