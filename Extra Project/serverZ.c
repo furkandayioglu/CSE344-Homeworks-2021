@@ -25,11 +25,13 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <stdatomic.h>
 
 /*  Data Structures */
 
 typedef struct threadPool_t{
     int id;
+    int full;
     int status;
     int socketfd;
     pthread_mutex_t mutex;
@@ -38,8 +40,6 @@ typedef struct threadPool_t{
 
 /* Thread Function */
 void *pool_func(void* arg);
-
-
 
 
 /* Functions */
@@ -65,6 +65,7 @@ threadPool_t* threadParams; /* Threads parameters */
 pthread_mutex_t main_mutex = PTHREAD_MUTEX_INITIALIZER; /* In order to create critical region to write into file*/
 pthread_mutex_t full_mutex = PTHREAD_MUTEX_INITIALIZER; /* find available thread */ 
 
+/* condition variables */
 
 char* logFile;
 int pool_size;
@@ -72,10 +73,11 @@ int port;
 int sleep_dur;
 
 int sig_int_flag=0;
-/* counter semaphores */
-sem_t pool_full;
-sem_t invertible_counter;
-sem_t non_invertible_counter;
+/* counter  */
+atomic_int pool_full=0;
+atomic_int total_rec=0;
+atomic_int invertible_counter=0;
+atomic_int non_invertible_counter=0;
 
 int logFD;
 int socketfd;
@@ -193,10 +195,23 @@ int main(int argc, char** argv){
 
         socklen_t socket_len = sizeof(serv_addr);
         int acceptfd = accept(socketfd,(struct sockaddr*)&serv_addr,&socket_len);
+    
+        pthread_mutex_lock(&main_mutex);
+        int found=0;
+        for(int i=0;i<pool_size;i++){
+            if(threadParams[i].status == 0){
+                threadParams[i].status = 1;
+                threadParams[i].full = 1;
+                threadParams[i].socketfd = acceptfd;
+                found=1;
+            }
+        }
 
+        pthread_mutex_unlock(&main_mutex);
 
-
-
+        if(found == 0){
+            /*wait for available thread  */
+        }
     }
 
 
@@ -254,6 +269,7 @@ void threadPool_init(){
     for(i=0;i<pool_size;i++){
         threadParams[i].id=i;
         threadParams[i].status=0;
+        threadParams[i].full = 0;
         threadParams[i].socketfd=0;
         if(pthread_mutex_init(&threadParams[i].mutex,NULL)!=0){								// initialize mutex and condition variables
 			print_ts("mutex initialize failed!!!. Program will finish.");
@@ -321,7 +337,9 @@ void *pool_func(void* arg){
     int i=0,j=0;
     int** matrix;
     int id = (int) arg;
+    int bytes=0;
     
+
     char msg[100];
 	sprintf(msg,"Z: Thread #%d: waiting for connection\n",id);
     print_ts(msg);
@@ -332,6 +350,95 @@ void *pool_func(void* arg){
             break;
         }
 
+        pthread_mutex_lock(&threadParams[id].mutex);
+        /* change thread status*/
+        if(threadParams[id].full == 0){
+
+            while(threadParams[id].full == 0)
+
+            threadParams[id].status=1;
+            
+        }
+            
+
+        if(sig_int_flag==0){
+            int client_id;
+            int matrix_size;
+            int** matrix;
+            int det=0;
+            int response=0;
+            if((bytes = recv(threadParams[id].socketfd,&client_id,sizeof(client_id),0))<0){
+                print_ts("Z: Recieve error Client_id\nTerminating...\n");
+            }
+
+            if((bytes = recv(threadParams[id].socketfd,&matrix_size,sizeof(matrix_size),0))<0){
+                print_ts("Z: Recieve error Matrix_size\nTerminating...\n");
+            }
+
+            matrix = (int**) calloc(matrix_size,sizeof(int*));
+            for(int i=0;i< matrix_size;i++){
+                matrix[i] = (int*) calloc(matrix_size,sizeof(int));
+            }
+
+
+
+            for(int i=0;i<matrix_size;i++){        
+                for(int j=0;j<matrix_size;j++){
+                    int temp;
+                    if((bytes = recv(threadParams[id].socketfd,&temp,sizeof(temp),0))<0){
+                        print_ts("Z: Recieve error Matrix\nTerminating...\n");
+                        exit(-1);
+                    }
+                    matrix[i][j]=temp;
+                   
+                }
+            
+            }
+
+            char clHndMsg[513];
+            sprintf(clHndMsg,"Z: Thread #%d is handling Client #%d: matrix size %dx%d, pool busy %d/%d\n",id,client_id,matrix_size,pool_full,pool_size);
+            print_ts(clHndMsg);
+
+            det = determinant(matrix,matrix_size);
+
+            if(det == 0){
+                response = 0;
+            }else{
+                response=1;
+            }
+
+            sleep(sleep_dur);
+
+            char clRspMsg[513];
+            if(response == 0)
+                sprintf(clRspMsg,"Z: Thread #%d is responding Client #%d: matrix IS non-invertible\n",id,client_id);
+            else
+                sprintf(clRspMsg,"Z: Thread #%d is responding Client #%d: matrix IS invertible \n",id,client_id);
+            
+            print_ts(clRspMsg);
+
+            if( send(threadParams[id].socketfd, &response , sizeof(response),0) < 0)
+            {
+                print_ts("Z: Response Send Fail\n");
+                print_ts("\n Terminating... \n");
+                exit(-1);
+            }
+
+            for(int i=0;i<matrix_size;i++){
+                free(matrix[i]);
+            }
+            free(matrix);
+
+            close(threadParams[id].socketfd);
+
+            pthread_mutex_lock(&main_mutex);
+            threadParams[id].full=0;
+            threadParams[id].status=0;
+            pool_full--;
+            pthread_mutex_unlock(&main_mutex);
+
+            pthread_mutex_unlock(&threadParams[id].mutex);
+        }
 
     }
 

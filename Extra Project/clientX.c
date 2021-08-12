@@ -75,6 +75,8 @@ int main(int argc, char**argv){
     int i=0;
     struct sigaction sa;
     char rspMsg[513];
+    int recive_bytes=0;
+
     memset(&sa,0,sizeof(sa));
     sa.sa_handler=&signal_handler;
 
@@ -220,9 +222,14 @@ int main(int argc, char**argv){
 
     /* invertible */
 
-    recv(sockfd,&response,sizeof(response),0);
+    if((recive_bytes = recv(sockfd,&response,sizeof(response),0)) < 0){
+        print_ts("Recieve Failed\nTerminating...\n");
+        exit(-1);
+    }
+
     gettimeofday(&tm2,NULL);
     double totaltime = (double) (tm2.tv_usec - tm1.tv_usec) / 1000000 +(double) (tm2.tv_sec - tm1.tv_sec);
+    
     if(response==0){
         sprintf(rspMsg,"Client #%d : the matrix is non-invertible, total time %.1f seconds, exiting...\n",id_int,totaltime);
     }else{
