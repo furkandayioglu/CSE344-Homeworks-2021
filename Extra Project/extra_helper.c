@@ -88,6 +88,7 @@ int determinant(int** matrix, int n){
     if(n==1){
         return matrix[0][0];        
     }
+    
 
     temp = (int**)calloc(n,sizeof(int*));
 

@@ -12,8 +12,10 @@ helper*
 testClient.c
 testServer.c
 extra_helper.c
+
 tclnt
 tsvr
+
 servers*
 *.log
 program*
@@ -80,3 +82,6 @@ dkms.conf
 *.blg
 # End of https://www.toptal.com/developers/gitignore/api/c
 
+Extra Project/extra_helper.c
+Extra Project/testClient.c
+Extra Project/testServer.c
