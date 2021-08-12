@@ -1,7 +1,7 @@
-all: tclnt tsvr
-tsvr: testServer.c
-	gcc -Wall -g testServer.c -o tsvr -lpthread -lrt
-tclnt: testClient.c
-	gcc -Wall -g testClient.c -o tclnt -lpthread -lrt
+all: clientX serverZ 
+clientX: clientX.c
+	gcc -Wall -g clientX.c -o clientX -lpthread -lrt
+serverZ: serverZ.c
+	gcc -Wall -g serverZ.c -o serverZ -lpthread -lrt
 clean:
-	rm tclnt tsvr *.o
+	rm clientX serverZ *.o

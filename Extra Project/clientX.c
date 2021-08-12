@@ -27,27 +27,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-void signal_handler(int signo){
-    int i=0;
-    switch (signo)
-    {
-        case SIGINT:
-            char msg1[256];
-            sprintf(msg1,"ClientX #%d caught SIGINT\nTerminating...",id_int);
-            print_ts(msg1);
-            close(sockfd);
-            close(connectfd);
-            /* Free matrix */
-             for(i=0;i<size;i++){
-                free(matrix[i]);
-            }
-            free(matrix);
-            break;
-    
-        default:
-            break;
-    }
-}
+void signal_handler(int signo);
 
 /*HELPER FUNCTIONS */
 int dim_size(char*filename);
@@ -75,7 +55,7 @@ int main(int argc, char**argv){
     int i=0;
     struct sigaction sa;
     char rspMsg[513];
-    int recive_bytes=0;
+  
 
     memset(&sa,0,sizeof(sa));
     sa.sa_handler=&signal_handler;
@@ -133,9 +113,9 @@ int main(int argc, char**argv){
 
     /* initialize matrix */ 
     size = dim_size(filePath);    
-    matrix = (int*) calloc(size,sizeof(int*));
+    matrix = (int**) calloc(size,sizeof(int*));
     for(i=0;i<size;i++)
-        matrix[i] = (int) calloc(size,sizeof(int));
+        matrix[i] = (int*) calloc(size,sizeof(int));
 
     fill_matrix(filePath);
 
@@ -167,7 +147,7 @@ int main(int argc, char**argv){
     }
 
     char msg1[1024];
-    sprintf(msg1, "Client #%d (%s:%d, %s) is submitting %dx%d matrix\n", id_int, ipAddr, port,filePath,size);
+    sprintf(msg1, "Client #%d (%s:%d, %s) is submitting %dx%d matrix\n", id_int, ipAddr, port,filePath,size,size);
     print_ts(msg1);
 
     // connect the client socket to server socket
@@ -222,7 +202,7 @@ int main(int argc, char**argv){
 
     /* invertible */
 
-    if((recive_bytes = recv(sockfd,&response,sizeof(response),0)) < 0){
+    if((readedByte = recv(sockfd,&response,sizeof(response),0)) < 0){
         print_ts("Recieve Failed\nTerminating...\n");
         exit(-1);
     }
@@ -322,3 +302,24 @@ void fill_matrix(char* filename){
     fclose(input);
 }
 
+void signal_handler(int signo){
+    int i=0;
+    char msg1[256];
+    switch (signo)
+    {
+        case SIGINT:            
+            sprintf(msg1,"ClientX #%d caught SIGINT\nTerminating...",id_int);
+            print_ts(msg1);
+            close(sockfd);
+            close(connectfd);
+            /* Free matrix */
+             for(i=0;i<size;i++){
+                free(matrix[i]);
+            }
+            free(matrix);
+            break;
+    
+        default:
+            break;
+    }
+}

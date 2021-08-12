@@ -182,7 +182,7 @@ int main(int argc, char** argv){
     pool = (pthread_t *)calloc(pool_size, sizeof(pthread_t));
     threadParams = (threadPool_t *)calloc(pool_size, sizeof(threadPool_t));
     for(i=0;i<pool_size;i++){
-        if (pthread_create(&pool[i], NULL, pool_func, (void *)i) != 0)
+        if (pthread_create(&pool[i], NULL, pool_func, &i) != 0)
             {
                 print_ts("Thread Creation failed\n");
                 exit(-1);
@@ -197,21 +197,21 @@ int main(int argc, char** argv){
         int acceptfd = accept(socketfd,(struct sockaddr*)&serv_addr,&socket_len);
     
         pthread_mutex_lock(&main_mutex);
-        int found=0;
+        
         for(int i=0;i<pool_size;i++){
             if(threadParams[i].status == 0){
                 threadParams[i].status = 1;
                 threadParams[i].full = 1;
                 threadParams[i].socketfd = acceptfd;
-                found=1;
+                
             }
         }
 
         pthread_mutex_unlock(&main_mutex);
 
-        if(found == 0){
-            /*wait for available thread  */
-        }
+       if(sig_int_flag==1){
+           break;
+       }
     }
 
 
@@ -263,6 +263,7 @@ void check_instance(){
         }
     }
 }
+
 void threadPool_init(){
     int i=0;
 
@@ -332,19 +333,41 @@ int determinant(int**matrix, int size){
 
 }
 
-void *pool_func(void* arg){
-    int size;
-    int i=0,j=0;
-    int** matrix;
-    int id = (int) arg;
-    int bytes=0;
-    
+void signal_handler(int signo){
+    char msg1[513];
+    int j;
+    switch(signo){
+        case SIGINT:
+            sig_int_flag =1;
+            sprintf(msg1,"Z: SIGINT recieved, exiting serverZ. Total request:%d, invertible: %d, %d not\n",total_rec,invertible_counter,non_invertible_counter);
+            print_ts(msg1);
 
+            for(j=0; j< pool_size;j++){
+                pthread_join(pool[j],NULL);
+            }
+
+
+            free(pool);
+            free(threadParams);
+            close(logFD);
+            close(socketfd);
+            break;
+        default:
+            break;
+    }
+
+
+}
+
+void *pool_func(void* arg){
+  
+    int id = *((int *)arg);
+    int bytes=0; 
     char msg[100];
 	sprintf(msg,"Z: Thread #%d: waiting for connection\n",id);
-    print_ts(msg);
-
+   
     while(1){
+
         print_ts(msg);
         if(sig_int_flag == 1){
             break;
@@ -354,7 +377,7 @@ void *pool_func(void* arg){
         /* change thread status*/
         if(threadParams[id].full == 0){
 
-            while(threadParams[id].full == 0)
+            while(threadParams[id].full == 0){}
 
             threadParams[id].status=1;
             
@@ -362,11 +385,14 @@ void *pool_func(void* arg){
             
 
         if(sig_int_flag==0){
+
+            int i=0,j=0;
             int client_id;
             int matrix_size;
             int** matrix;
             int det=0;
             int response=0;
+
             if((bytes = recv(threadParams[id].socketfd,&client_id,sizeof(client_id),0))<0){
                 print_ts("Z: Recieve error Client_id\nTerminating...\n");
             }
@@ -376,14 +402,14 @@ void *pool_func(void* arg){
             }
 
             matrix = (int**) calloc(matrix_size,sizeof(int*));
-            for(int i=0;i< matrix_size;i++){
+            for( i=0;i< matrix_size;i++){
                 matrix[i] = (int*) calloc(matrix_size,sizeof(int));
             }
 
 
 
-            for(int i=0;i<matrix_size;i++){        
-                for(int j=0;j<matrix_size;j++){
+            for( i=0;i<matrix_size;i++){        
+                for( j=0;j<matrix_size;j++){
                     int temp;
                     if((bytes = recv(threadParams[id].socketfd,&temp,sizeof(temp),0))<0){
                         print_ts("Z: Recieve error Matrix\nTerminating...\n");
@@ -396,17 +422,19 @@ void *pool_func(void* arg){
             }
 
             char clHndMsg[513];
-            sprintf(clHndMsg,"Z: Thread #%d is handling Client #%d: matrix size %dx%d, pool busy %d/%d\n",id,client_id,matrix_size,pool_full,pool_size);
+            sprintf(clHndMsg,"Z: Thread #%d is handling Client #%d: matrix size %dx%d, pool busy %d/%d\n",id,client_id,matrix_size,matrix_size,pool_full,pool_size);
             print_ts(clHndMsg);
 
             det = determinant(matrix,matrix_size);
 
             if(det == 0){
                 response = 0;
+                non_invertible_counter++;
             }else{
                 response=1;
+                invertible_counter++;
             }
-
+            total_rec++;
             sleep(sleep_dur);
 
             char clRspMsg[513];
@@ -424,7 +452,7 @@ void *pool_func(void* arg){
                 exit(-1);
             }
 
-            for(int i=0;i<matrix_size;i++){
+            for( i=0;i<matrix_size;i++){
                 free(matrix[i]);
             }
             free(matrix);
@@ -442,4 +470,5 @@ void *pool_func(void* arg){
 
     }
 
+    return 0;
 }
