@@ -216,6 +216,7 @@ int main(int argc, char**argv){
         sprintf(rspMsg,"Client #%d : the matrix is invertible, total time %.1f seconds, exiting...\n",id_int,totaltime);
     }
 
+    print_ts(rspMsg);
 
     /* Free matrix */
     for(i=0;i<size;i++){

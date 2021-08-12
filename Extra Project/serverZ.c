@@ -179,8 +179,11 @@ int main(int argc, char** argv){
 
 
     /* Create threads */
-    pool = (pthread_t *)calloc(pool_size, sizeof(pthread_t));
     threadParams = (threadPool_t *)calloc(pool_size, sizeof(threadPool_t));
+    threadPool_init();
+
+    pool = (pthread_t *)calloc(pool_size, sizeof(pthread_t));
+    
     for(i=0;i<pool_size;i++){
         if (pthread_create(&pool[i], NULL, pool_func, &i) != 0)
             {
@@ -196,7 +199,7 @@ int main(int argc, char** argv){
 		print_ts("full mutex initialize failed!!!. Program will finish.");
 		exit(-1);
 	}
-    threadPool_init();
+   
 
     /* Main Thread */
     while (1){
@@ -205,7 +208,7 @@ int main(int argc, char** argv){
         int acceptfd = accept(socketfd,(struct sockaddr*)&serv_addr,&socket_len);
     
         pthread_mutex_lock(&main_mutex);
-        
+       
         for(int i=0;i<pool_size;i++){
             if(threadParams[i].status == 0){
                 threadParams[i].status = 1;
@@ -279,10 +282,13 @@ void threadPool_init(){
         threadParams[i].status=0;
         threadParams[i].full = 0;
         threadParams[i].socketfd=0;
+
         if(pthread_mutex_init(&threadParams[i].mutex,NULL)!=0){								// initialize mutex and condition variables
 			print_ts("mutex initialize failed!!!. Program will finish.");
 			exit(-1);
 		}
+
+        
     }
 
 }
@@ -399,7 +405,7 @@ void *pool_func(void* arg){
             int** matrix;
             int det=0;
             int response=0;
-
+            
             if((bytes = recv(threadParams[id].socketfd,&client_id,sizeof(client_id),0))<0){
                 print_ts("Z: Recieve error Client_id\nTerminating...\n");
             }
@@ -466,13 +472,15 @@ void *pool_func(void* arg){
 
             close(threadParams[id].socketfd);
 
+           
+
+            pthread_mutex_unlock(&threadParams[id].mutex);
+            
             pthread_mutex_lock(&main_mutex);
             threadParams[id].full=0;
             threadParams[id].status=0;
             pool_full--;
             pthread_mutex_unlock(&main_mutex);
-
-            pthread_mutex_unlock(&threadParams[id].mutex);
         }
 
     }
