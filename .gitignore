@@ -15,6 +15,9 @@ extra_helper.c
 
 tclnt
 tsvr
+clientX
+serverY
+serverZ
 
 servers*
 *.log
