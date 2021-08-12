@@ -9,9 +9,9 @@ bunedu.c
 plus_count.c
 output.txt
 helper*
-testClient.*
-testServer.*
-extra_helper.*
+testClient.c
+testServer.c
+extra_helper.c
 tclnt
 tsvr
 servers*
