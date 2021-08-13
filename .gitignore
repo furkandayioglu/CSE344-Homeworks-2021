@@ -12,7 +12,7 @@ helper*
 testClient.c
 testServer.c
 extra_helper.c
-
+dummy*
 tclnt
 tsvr
 clientX

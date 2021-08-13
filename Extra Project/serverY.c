@@ -70,10 +70,10 @@ void cofactors(int** matrix, int** temp, int size, int i, int j);
 int determinant(int** matrix,int size);
 void signal_handler(int signo);
 void check_instance();
-
+static void becomedeamon();
 /* Helpers */ 
 
-void print_ts(char *msg);
+void print_ts(char *msg,int fd);
 void print_usage();
 void threadParams_init();
 threadPoolY_t* threadParamsY;
@@ -94,7 +94,7 @@ atomic_int pool2_full=0;
 atomic_int invertible_counter;
 atomic_int non_invertible_counter;
 
-
+static volatile sig_atomic_t sig_int_flag=0;
 
 char* ipAddr;
 char* logFile;
@@ -122,7 +122,7 @@ int main(int argc, char** argv){
 
      if(argc != 11){
         print_usage();
-        print_ts("Terminating...\n");
+        print_ts("Terminating...\n",2);
         exit(-1);
     }
 
@@ -156,15 +156,15 @@ int main(int argc, char** argv){
 
     if (port <= 1000)
     {
-        print_ts("PORT must be greater than 1000.\n");
-        print_ts("PORTs that less than 1000 are reserved for kernel processes\n");
-        print_ts("Terminating...\n");
+        print_ts("PORT must be greater than 1000.\n",2);
+        print_ts("PORTs that less than 1000 are reserved for kernel processes\n",2);
+        print_ts("Terminating...\n",2);
         exit(-1);
     }
 
     if(pool1_size<2 || pool2_size<2){
-        print_ts("Pool size must be greater than 1000.\n");
-        print_ts("Terminating...\n");
+        print_ts("Pool size must be greater than 1000.\n",2);
+        print_ts("Terminating...\n",2);
         exit(-1);
     }
 
@@ -174,7 +174,7 @@ int main(int argc, char** argv){
 
     /* Daemonize*/
 
-    
+    //becomedeamon();    
 
     /* Sockets*/
 
@@ -185,13 +185,14 @@ int main(int argc, char** argv){
 
 
     /* Create Threads and initiliaze Thread Pool */  
+    threadParams_init();
 
     pool1 = (pthread_t *)calloc(pool1_size, sizeof(pthread_t));
     threadParamsY = (threadPoolY_t *)calloc(pool1_size, sizeof(threadPoolY_t));
     for(int i=0;i<pool1_size;i++){
         if (pthread_create(&pool1[i], NULL, pool1_func, (void *)i) != 0)
             {
-                print_ts("Thread Creation failed\n");
+                print_ts("Thread Creation failed\n",2);
                 exit(-1);
             }
     }
@@ -201,12 +202,12 @@ int main(int argc, char** argv){
     for(int i=0;i<pool2_size;i++){
         if (pthread_create(&pool2[i], NULL, pool2_func, (void *)i) != 0)
             {
-                print_ts("Thread Creation failed\n");
+                print_ts("Thread Creation failed\n",2);
                 exit(-1);
             }
     }
 
-    threadParams_init();
+    
 
 
 
@@ -231,24 +232,75 @@ int main(int argc, char** argv){
     return 0;
 }
 
-void print_ts(char *msg)
+void print_ts(char *msg,int fd)
 {
     char buffer[500];
+    struct flock lock;
 
     struct tm *currentTime;
     time_t timeCurrent = time(0);
     currentTime = gmtime(&timeCurrent);
 
+    memset(&lock,0,sizeof(lock));
+    lock.l_type = F_WRLCK;
+    fcntl(fd,F_SETLKW,&lock);
+
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S ", currentTime);
     strcat(buffer, msg);
-    write(2, buffer, strlen(buffer));
+    write(fd, buffer, strlen(buffer));
+
+    lock.l_type= F_UNLCK;
+    fcntl(fd,F_SETLKW,&lock);
 }
 
 void print_usage()
 {
-    print_ts("##USAGE##\n");
-    print_ts("Invalid Amount of parameter\n");
-    print_ts("./client -i ID -a 127.0.0.1 -p PORT -o pathToQueryFile\n");
+    print_ts("##USAGE##\n",2);
+    print_ts("Invalid Amount of parameter\n",2);
+    print_ts("./client -i ID -a 127.0.0.1 -p PORT -o pathToQueryFile\n",2);
+}
+
+static void becomedeamon(){
+    pid_t pid;
+
+    /* Forks the parent process */
+    if ((pid = fork())<0){
+        unlink("running");
+        exit(-1);
+    }
+
+    /* Terminates the parent process */
+    if (pid > 0){
+        exit(0);
+    }
+
+    /*The forked process is session leader */
+    if (setsid() < 0){
+        unlink("running");
+        exit(-1);
+    }
+
+    /* Second fork */
+    if((pid = fork())<0){
+        unlink("running");
+        exit(-1);
+    }
+
+    /* Parent termination */
+    if (pid > 0){
+        exit(0);
+    }
+
+    /* Unmasks */
+    umask(0);
+
+    /* Appropriated directory changing */
+    chdir(".");
+
+    /* Close core  */
+    close(STDERR_FILENO);
+    close(STDOUT_FILENO);
+    close(STDIN_FILENO);
 }
 
 void check_instance(){
@@ -257,8 +309,8 @@ void check_instance(){
 
     if(res){
         if(EAGAIN == errno){
-            print_ts("Server Y already running...\n");
-            print_ts("Terminating...\n");
+            print_ts("Server Y already running...\n",2);
+            print_ts("Terminating...\n",2);
             exit(-1);
         }
     }
@@ -271,7 +323,7 @@ void threadParams_init(){
         threadParamsY[i].full = 0;
         threadParamsY[i].socketfd=0;
         if(pthread_mutex_init(&threadParamsY[i].mutex,NULL)!=0){								// initialize mutex and condition variables
-			print_ts("Mutex initialize failed!!!. Terminating...");
+			print_ts("Mutex initialize failed!!!. Terminating...",2);
 			exit(-1);
 		}
     }
@@ -282,7 +334,7 @@ void threadParams_init(){
         threadParamsZ[i].full = 0;
         threadParamsZ[i].socketfd=0;
         if(pthread_mutex_init(&threadParamsZ[i].mutex,NULL)!=0){								// initialize mutex and condition variables
-			print_ts("Mutex initialize failed!!!. Terminating...");
+			print_ts("Mutex initialize failed!!!. Terminating...",2);
 			exit(-1);
 		}
     }
@@ -338,6 +390,10 @@ int determinant(int**matrix, int size){
 
 
     return det;
+
+}
+
+void signal_handler(int signo){
 
 }
 

@@ -56,10 +56,11 @@ void signal_handler(int signo);
 
 
 /* Helpers */ 
-void print_ts(char* msg);
+void print_ts(char* msg,int fd);
 void print_usage();
 void threadPool_init();
 void check_instance();
+static void becomedeamon();
 
 /* Variables */
 
@@ -68,6 +69,7 @@ threadPool_t* threadParams; /* Threads parameters */
 pthread_mutex_t main_mutex = PTHREAD_MUTEX_INITIALIZER; /* In order to create critical region to write into file*/
 pthread_mutex_t full_mutex = PTHREAD_MUTEX_INITIALIZER; /* find available thread */ 
 pthread_cond_t condition_var = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond_full = PTHREAD_COND_INITIALIZER;
 /* condition variables */
 
 char* logFile;
@@ -101,7 +103,7 @@ int main(int argc, char** argv){
     if (argc != 9)
     {
         print_usage();
-        print_ts("Terminating...\n");
+        print_ts("Terminating...\n",2);
         exit(-1);
     }
 
@@ -132,30 +134,32 @@ int main(int argc, char** argv){
 
     if (port <= 1000)
     {
-        print_ts("PORT must be greater than 1000.\n");
-        print_ts("PORTs that less than 1000 are reserved for kernel processes\n");
-        print_ts("Terminating...\n");
+        print_ts("PORT must be greater than 1000.\n",2);
+        print_ts("PORTs that less than 1000 are reserved for kernel processes\n",2);
+        print_ts("Terminating...\n",2);
         exit(-1);
     }
 
     if(pool_size<2){
-        print_ts("Pool size must be greater than 1000.\n");
-        print_ts("Terminating...\n");
+        print_ts("Pool size must be greater than 1000.\n",2);
+        print_ts("Terminating...\n",2);
         exit(-1);
     }
 
+    
 
     /* Deamonize */
 
+    becomedeamon();
 
-
+    logFD = open(logFile,O_CREAT|O_WRONLY|O_TRUNC,S_IRUSR|S_IWUSR);
    
     /* server creation */ 
     struct sockaddr_in serv_addr;
     memset(&serv_addr, '0', sizeof(serv_addr));
     if((socketfd = socket(AF_INET, SOCK_STREAM, 0))<0){		// socket initialize
-	    print_ts("socket error!\n");
-        print_ts("Terminating...\n");
+	    print_ts("socket error!\n",logFD);
+        print_ts("Terminating...\n",logFD);
 	    exit(-1);
     }
     serv_addr.sin_family = AF_INET;
@@ -163,20 +167,20 @@ int main(int argc, char** argv){
 	serv_addr.sin_port = htons(port); 
 
 	if((bind(socketfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) < 0){	// bind socket
-	    print_ts("bind error!\n");
-        print_ts("Terminating...\n");	
+	    print_ts("bind error!\n",logFD);
+        print_ts("Terminating...\n",logFD);	
 	    exit(-1);
 	}
 
     if((listen(socketfd, SERVERBACKLOG)) < 0){			// listen socket
-	    print_ts("listen error!\n");
-        print_ts("Terminating...\n");
+	    print_ts("listen error!\n",logFD);
+        print_ts("Terminating...\n",logFD);
 	    exit(-1);
 	}
 
     char msg_srv_init[513];
     sprintf(msg_srv_init,"Z: Server Z (127.0.0.1:%d, %s, t=%d, m=%d) started\n",port,logFile,sleep_dur,pool_size);
-    print_ts(msg_srv_init);
+    print_ts(msg_srv_init,logFD);
 
 
 
@@ -190,16 +194,16 @@ int main(int argc, char** argv){
     for(i=0;i<pool_size;i++){
         if (pthread_create(&pool[i], NULL, pool_func, &i) != 0)
             {
-                print_ts("Thread Creation failed\n");
+                print_ts("Thread Creation failed\n",logFD);
                 exit(-1);
             }
     }
     if(pthread_mutex_init(&main_mutex,NULL)!=0){								// initialize mutex and condition variables
-		print_ts("main mutex initialize failed!!!. Program will finish.");
+		print_ts("main mutex initialize failed!!!. Program will finish.",logFD);
 		exit(-1);
 	}
     if(pthread_mutex_init(&full_mutex,NULL)!=0){								// initialize mutex and condition variables
-		print_ts("full mutex initialize failed!!!. Program will finish.");
+		print_ts("full mutex initialize failed!!!. Program will finish.",logFD);
 		exit(-1);
 	}
    
@@ -228,7 +232,7 @@ int main(int argc, char** argv){
         int stat;
 		stat=pthread_join(pool[i],&ptr); 						
 		if(stat!=0) 
-			print_ts(" Error p_thread Join");
+			print_ts(" Error p_thread Join",logFD);
     }
 
     close(socketfd);
@@ -238,23 +242,31 @@ int main(int argc, char** argv){
     return 0;
 }
 
-void print_ts(char* msg){
+void print_ts(char* msg,int fd){
     char buffer[500];
+    struct flock lock;
 
     struct tm *currentTime;
     time_t timeCurrent = time(0);
     currentTime = gmtime(&timeCurrent);
+    
+    memset(&lock,0,sizeof(lock));
+    lock.l_type = F_WRLCK;
 
+    fcntl(fd,F_SETLKW,&lock);
+    
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S ", currentTime);
     strcat(buffer, msg);
-    write(2, buffer, strlen(buffer));
+    write(fd, buffer, strlen(buffer));
 
+    lock.l_type= F_UNLCK;
+    fcntl(fd,F_SETLKW,&lock);
 }
 
 void print_usage(){
-    print_ts("##USAGE##\n");
-    print_ts("Invalid Amount of parameter\n");
-    print_ts("./serverZ -p PORT -o PathLogFile -m poolsize -t sleepduration\n");
+    print_ts("##USAGE##\n",2);
+    print_ts("Invalid Amount of parameter\n",2);
+    print_ts("./serverZ -p PORT -o PathLogFile -m poolsize -t sleepduration\n",2);
 }
 
 void check_instance(){
@@ -263,11 +275,54 @@ void check_instance(){
 
     if(res){
         if(EAGAIN == errno){
-            print_ts("Z: Server Z already running...\n");
-            print_ts("Z: Terminating...\n");
+            print_ts("Z: Server Z already running...\n",2);
+            print_ts("Z: Terminating...\n",2);
             exit(-1);
         }
     }
+}
+
+static void becomedeamon(){
+    pid_t pid;
+
+    /* Forks the parent process */
+    if ((pid = fork())<0){
+        unlink("running");
+        exit(-1);
+    }
+
+    /* Terminates the parent process */
+    if (pid > 0){
+        exit(0);
+    }
+
+    /*The forked process is session leader */
+    if (setsid() < 0){
+        unlink("running");
+        exit(-1);
+    }
+
+    /* Second fork */
+    if((pid = fork())<0){
+        unlink("running");
+        exit(-1);
+    }
+
+    /* Parent termination */
+    if (pid > 0){
+        exit(0);
+    }
+
+    /* Unmasks */
+    umask(0);
+
+    /* Appropriated directory changing */
+    chdir(".");
+
+    /* Close core  */
+    close(STDERR_FILENO);
+    close(STDOUT_FILENO);
+    close(STDIN_FILENO);
 }
 
 void threadPool_init(){
@@ -280,12 +335,12 @@ void threadPool_init(){
         threadParams[i].socketfd=0;
 
         if(pthread_mutex_init(&threadParams[i].mutex,NULL)!=0){								// initialize mutex and condition variables
-			print_ts("Z: mutex initialize failed!\nTerminating...\n");
+			print_ts("Z: mutex initialize failed!\nTerminating...\n",logFD);
 			exit(-1);
 		}
 
         if(pthread_cond_init(&threadParams[i].cond,NULL)!=0){
-			printf("Z: condtion variable initialize failed!\nTerminating...\n");
+			print_ts("Z: condtion variable initialize failed!\nTerminating...\n",logFD);
 			exit(EXIT_FAILURE);
 		}
     }
@@ -352,7 +407,7 @@ void signal_handler(int signo){
         case SIGINT:
             sig_int_flag =1;
             sprintf(msg1,"Z: SIGINT recieved, exiting serverZ. Total request:%d, invertible: %d, %d not\n",total_rec,invertible_counter,non_invertible_counter);
-            print_ts(msg1);
+            print_ts(msg1,logFD);
 
             for(j=0; j< pool_size;j++){
                 pthread_join(pool[j],NULL);
@@ -380,7 +435,7 @@ void *pool_func(void* arg){
    
     while(1){
 
-        print_ts(msg);
+        //print_ts(msg,logFD);
         if(sig_int_flag == 1){
             break;
         }
@@ -412,13 +467,13 @@ void *pool_func(void* arg){
             int det=0;
             int response=0;
             
-            if(threadParams[id].socketfd != NULL){
+            if(threadParams[id].socketfd != 0){
                 if((bytes = recv(threadParams[id].socketfd,&client_id,sizeof(client_id),0))<0){
-                print_ts("Z: Recieve error Client_id\nTerminating...\n");
+                print_ts("Z: Recieve error Client_id\nTerminating...\n",logFD);
             }
 
             if((bytes = recv(threadParams[id].socketfd,&matrix_size,sizeof(matrix_size),0))<0){
-                print_ts("Z: Recieve error Matrix_size\nTerminating...\n");
+                print_ts("Z: Recieve error Matrix_size\nTerminating...\n",logFD);
             }
 
             matrix = (int**) calloc(matrix_size,sizeof(int*));
@@ -432,7 +487,7 @@ void *pool_func(void* arg){
                 for( j=0;j<matrix_size;j++){
                     int temp;
                     if((bytes = recv(threadParams[id].socketfd,&temp,sizeof(temp),0))<0){
-                        print_ts("Z: Recieve error Matrix\nTerminating...\n");
+                        print_ts("Z: Recieve error Matrix\nTerminating...\n",logFD);
                         exit(-1);
                     }
                     matrix[i][j]=temp;
@@ -443,7 +498,7 @@ void *pool_func(void* arg){
 
             char clHndMsg[513];
             sprintf(clHndMsg,"Z: Thread #%d is handling Client #%d: matrix size %dx%d, pool busy %d/%d\n",id,client_id,matrix_size,matrix_size,pool_full,pool_size);
-            print_ts(clHndMsg);
+            print_ts(clHndMsg,logFD);
 
             det = determinant(matrix,matrix_size);
 
@@ -463,12 +518,12 @@ void *pool_func(void* arg){
             else
                 sprintf(clRspMsg,"Z: Thread #%d is responding Client #%d: matrix IS invertible \n",id,client_id);
             
-            print_ts(clRspMsg);
+            print_ts(clRspMsg,logFD);
 
             if( send(threadParams[id].socketfd, &response , sizeof(response),0) < 0)
             {
-                print_ts("Z: Response Send Fail\n");
-                print_ts("\n Terminating... \n");
+                print_ts("Z: Response Send Fail\n",logFD);
+                print_ts("\n Terminating... \n",logFD);
                 exit(-1);
             }
 
@@ -482,9 +537,12 @@ void *pool_func(void* arg){
 
             pthread_mutex_lock(&main_mutex);
             pool_full--;
+            /*if(pool_full == pool_size)
+                pthread_cond_signal(&cond_full);*/
+                
             pthread_mutex_unlock(&main_mutex);
            
-
+            
             //pthread_mutex_unlock(&threadParams[id].mutex);
             
            
