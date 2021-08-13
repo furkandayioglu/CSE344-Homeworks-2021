@@ -26,7 +26,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdatomic.h>
+#include "myqueue.h"
 
+#define SERVERBACKLOG 100
 /*  Data Structures */
 
 typedef struct threadPool_t{
@@ -35,6 +37,7 @@ typedef struct threadPool_t{
     int status;
     int socketfd;
     pthread_mutex_t mutex;
+    pthread_cond_t cond;
 }threadPool_t;
 
 
@@ -64,7 +67,7 @@ pthread_t* pool;
 threadPool_t* threadParams; /* Threads parameters */ 
 pthread_mutex_t main_mutex = PTHREAD_MUTEX_INITIALIZER; /* In order to create critical region to write into file*/
 pthread_mutex_t full_mutex = PTHREAD_MUTEX_INITIALIZER; /* find available thread */ 
-
+pthread_cond_t condition_var = PTHREAD_COND_INITIALIZER;
 /* condition variables */
 
 char* logFile;
@@ -165,14 +168,14 @@ int main(int argc, char** argv){
 	    exit(-1);
 	}
 
-    if((listen(socketfd, 20)) < 0){			// listen socket
+    if((listen(socketfd, SERVERBACKLOG)) < 0){			// listen socket
 	    print_ts("listen error!\n");
         print_ts("Terminating...\n");
 	    exit(-1);
 	}
 
     char msg_srv_init[513];
-    sprintf(msg_srv_init,"Z:Server Z (127.0.0.1:%d, %s, t=%d, m=%d) started\n",port,logFile,sleep_dur,pool_size);
+    sprintf(msg_srv_init,"Z: Server Z (127.0.0.1:%d, %s, t=%d, m=%d) started\n",port,logFile,sleep_dur,pool_size);
     print_ts(msg_srv_init);
 
 
@@ -207,16 +210,9 @@ int main(int argc, char** argv){
         socklen_t socket_len = sizeof(serv_addr);
         int acceptfd = accept(socketfd,(struct sockaddr*)&serv_addr,&socket_len);
     
-        pthread_mutex_lock(&main_mutex);
-       
-        for(int i=0;i<pool_size;i++){
-            if(threadParams[i].status == 0){
-                threadParams[i].status = 1;
-                threadParams[i].full = 1;
-                threadParams[i].socketfd = acceptfd;
-                
-            }
-        }
+        pthread_mutex_lock(&main_mutex);        
+        enqueue(&acceptfd);
+        pthread_cond_signal(&condition_var);
         pthread_mutex_unlock(&main_mutex);
 
        if(sig_int_flag==1){
@@ -284,11 +280,14 @@ void threadPool_init(){
         threadParams[i].socketfd=0;
 
         if(pthread_mutex_init(&threadParams[i].mutex,NULL)!=0){								// initialize mutex and condition variables
-			print_ts("mutex initialize failed!!!. Program will finish.");
+			print_ts("Z: mutex initialize failed!\nTerminating...\n");
 			exit(-1);
 		}
 
-        
+        if(pthread_cond_init(&threadParams[i].cond,NULL)!=0){
+			printf("Z: condtion variable initialize failed!\nTerminating...\n");
+			exit(EXIT_FAILURE);
+		}
     }
 
 }
@@ -386,17 +385,24 @@ void *pool_func(void* arg){
             break;
         }
 
-        pthread_mutex_lock(&threadParams[id].mutex);
+       // pthread_mutex_lock(&threadParams[id].mutex);
         /* change thread status*/
-        if(threadParams[id].full == 0){
+       /* if(threadParams[id].full == 0){
 
-            while(threadParams[id].full == 0){}
+            while(threadParams[id].full == 0){
+                pthread_cond_wait(&threadParams[id].cond,&threadParams[id].mutex);
+            }
 
             threadParams[id].status=1;
             
-        }
+        }*/
             
-
+        pthread_mutex_lock(&main_mutex);
+        pthread_cond_wait(&condition_var,&main_mutex);
+        threadParams[id].socketfd = *((int*)dequeue());
+        pool_full++;
+        pthread_mutex_unlock(&main_mutex);
+        
         if(sig_int_flag==0){
 
             int i=0,j=0;
@@ -406,7 +412,8 @@ void *pool_func(void* arg){
             int det=0;
             int response=0;
             
-            if((bytes = recv(threadParams[id].socketfd,&client_id,sizeof(client_id),0))<0){
+            if(threadParams[id].socketfd != NULL){
+                if((bytes = recv(threadParams[id].socketfd,&client_id,sizeof(client_id),0))<0){
                 print_ts("Z: Recieve error Client_id\nTerminating...\n");
             }
 
@@ -469,18 +476,18 @@ void *pool_func(void* arg){
                 free(matrix[i]);
             }
             free(matrix);
-
+            }
+            
             close(threadParams[id].socketfd);
 
-           
-
-            pthread_mutex_unlock(&threadParams[id].mutex);
-            
             pthread_mutex_lock(&main_mutex);
-            threadParams[id].full=0;
-            threadParams[id].status=0;
             pool_full--;
             pthread_mutex_unlock(&main_mutex);
+           
+
+            //pthread_mutex_unlock(&threadParams[id].mutex);
+            
+           
         }
 
     }

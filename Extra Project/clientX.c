@@ -161,13 +161,9 @@ int main(int argc, char**argv){
     struct timeval  tm1, tm2;
     gettimeofday(&tm1, NULL);
 
-    /* waiting queue status*/
-
-
-
    
     /* send id*/
-    if( send(sockfd, &id_int , sizeof(id_int),0) < 0)
+    if(send(sockfd, &id_int , sizeof(id_int),0) < 0)
     {
         print_ts("ID Send failed\n");
         print_ts("\n Terminating... \n");
