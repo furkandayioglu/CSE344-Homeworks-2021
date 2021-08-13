@@ -28,6 +28,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdatomic.h>
+#include "myqueue.h"
+
+#define SERVERBACKLOG 100
 
 /* Data Structures */
 
@@ -49,18 +52,6 @@ typedef struct threadPoolZ_t{
     pthread_mutex_t mutex;
 }threadPoolZ_t;
 
-/* Wait Queue */
-
-typedef struct node_t{
-    int client_pid;
-    int matrix_size;
-    node_t* next;
-}node_t;
-
-typedef struct waitqueue_t{
-    node_t* head;
-    node_t* tail;
-}waitqueue_t;
 
 
 /* Thread Function */
