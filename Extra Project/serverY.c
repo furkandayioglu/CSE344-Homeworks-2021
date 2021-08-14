@@ -287,17 +287,20 @@ int main(int argc, char** argv){
         
 
         pthread_mutex_lock(&main_mutex);
+        print_ts("Enqueue function\n",logFD);
         enqueue(acceptfd);
 
 
        if(pool1_full < pool1_size){
+           print_ts("Pool1 available\n",logFD);
            pthread_mutex_lock(&pool1_mutex);
            pthread_cond_signal(&cond_pool1);
-
+           
        }else{
+           print_ts("Pool1 full, pool2 available\n",logFD);
            pthread_mutex_lock(&pool2_mutex);
            pthread_cond_signal(&cond_pool2);
-
+         
        }
 
         pthread_mutex_unlock(&main_mutex);
@@ -314,11 +317,6 @@ int main(int argc, char** argv){
             
             
     }
-
-
-
-
-
 
 
     /* clean the mess */

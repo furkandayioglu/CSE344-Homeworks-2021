@@ -61,7 +61,7 @@ void print_ts(char* msg,int fd);
 void print_usage();
 void threadPool_init();
 void check_instance();
-
+static void becomedeamon();
 
 /* Variables */
 
@@ -105,7 +105,7 @@ int main(int argc, char** argv){
 
     sigaction(SIGINT,&sa,NULL);
 
-    head = (node_t*) calloc(1,sizeof(node_t));
+    //head = (node_t*) calloc(1,sizeof(node_t));
     //tail = (node_t*) calloc(1,sizeof(node_t));
 
     check_instance();
@@ -156,7 +156,7 @@ int main(int argc, char** argv){
     }
 
     
-
+    becomedeamon();
 
     logFD = open(logFile,O_CREAT|O_WRONLY|O_APPEND,S_IRUSR|S_IWUSR);
    
@@ -184,6 +184,8 @@ int main(int argc, char** argv){
 	    exit(-1);
 	}
 
+   
+
     char msg_srv_init[513];
     sprintf(msg_srv_init,"Z: Server Z (127.0.0.1:%d, %s, t=%d, m=%d) started\n",port,logFile,sleep_dur,pool_size);
     print_ts(msg_srv_init,logFD);
@@ -198,9 +200,7 @@ int main(int argc, char** argv){
     pool = (pthread_t *)calloc(pool_size,sizeof(pthread_t));
     
     for(i=0;i<pool_size;i++){
-        /*pthread_attr_t attr;
-        pthread_attr_init(&attr);
-        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);*/
+       
         if (pthread_create(&pool[i], NULL , pool_func, &threadParams[i]) != 0)
             {
                 print_ts("Thread Creation failed\n",logFD);
@@ -308,7 +308,48 @@ void check_instance(){
     }
 }
 
+static void becomedeamon(){
+    pid_t pid;
 
+    /* Forks the parent process */
+    if ((pid = fork())<0){
+        unlink("running");
+        exit(-1);
+    }
+
+    /* Terminates the parent process */
+    if (pid > 0){
+        exit(0);
+    }
+
+    /*The forked process is session leader */
+    if (setsid() < 0){
+        unlink("running");
+        exit(-1);
+    }
+
+    /* Second fork */
+    if((pid = fork())<0){
+        unlink("running");
+        exit(-1);
+    }
+
+    /* Parent termination */
+    if (pid > 0){
+        exit(0);
+    }
+
+    /* Unmasks */
+    umask(0);
+
+    /* Appropriated directory changing */
+    chdir(".");
+
+    /* Close core  */
+    close(STDERR_FILENO);
+    close(STDOUT_FILENO);
+    close(STDIN_FILENO);
+}
 
 void threadPool_init(){
     int i=0;
