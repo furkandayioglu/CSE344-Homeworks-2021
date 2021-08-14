@@ -13,6 +13,7 @@ testClient.c
 testServer.c
 extra_helper.c
 dummy*
+y
 tclnt
 tsvr
 clientX

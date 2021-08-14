@@ -12,8 +12,6 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
-#include <semaphore.h>
-#include <sys/shm.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -163,7 +161,7 @@ int main(int argc, char**argv){
 
    
     /* send id*/
-    if(send(sockfd, &id_int , sizeof(id_int),0) < 0)
+    if(write(sockfd, &id_int , sizeof(id_int)) < 0)
     {
         print_ts("ID Send failed\n");
         print_ts("\n Terminating... \n");
@@ -171,7 +169,7 @@ int main(int argc, char**argv){
     }
 
     /* send size*/
-    if( send(sockfd, &size , sizeof(size),0) < 0)
+    if( write(sockfd, &size , sizeof(size)) < 0)
     {
         print_ts("ID Send failed\n");
         print_ts("\n Terminating... \n");
@@ -184,7 +182,7 @@ int main(int argc, char**argv){
     for(int i=0;i<size;i++){
         for(int j=0;j<size;j++){
             int temp = matrix[i][j];
-            if( send(sockfd,&temp, sizeof(temp),0) < 0)
+            if( write(sockfd,&temp, sizeof(temp)) < 0)
             {
                 print_ts(" Matrix Send failed\n");
                 print_ts("\n Terminating... \n");
@@ -198,7 +196,7 @@ int main(int argc, char**argv){
 
     /* invertible */
 
-    if((readedByte = recv(sockfd,&response,sizeof(response),0)) < 0){
+    if((readedByte = read(sockfd,&response,sizeof(response))) < 0){
         print_ts("Recieve Failed\nTerminating...\n");
         exit(-1);
     }

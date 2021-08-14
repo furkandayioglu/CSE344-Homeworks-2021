@@ -103,8 +103,9 @@ int pool2_size;
 int port;
 int sleep_dur;
 
-int logFD;
 
+int logFD;
+pid_t temp_pid;
 int serverZ_pid;
 
 int main(int argc, char** argv){
@@ -169,26 +170,32 @@ int main(int argc, char** argv){
     }
 
 
-  
+    char port_a[10];
+    char time_a[10];
 
-
+    sprint(port_a,"%d",port+1);
+    sprintf(time_a,"%d",sleep_dur);
+    char * args[] = {"./serverZ","-p"};
+    int pid;
     /* Daemonize*/
 
     //becomedeamon();    
-
-    /* Sockets*/
-
 
     /*Start Server Z */
     
     /* get serverZ Pid*/
 
+    /* Sockets*/
+
+
+   
+
 
     /* Create Threads and initiliaze Thread Pool */  
     threadParams_init();
 
-    pool1 = (pthread_t *)calloc(pool1_size, sizeof(pthread_t));
-    threadParamsY = (threadPoolY_t *)calloc(pool1_size, sizeof(threadPoolY_t));
+    pool1 = (pthread_t *)malloc(pool1_size* sizeof(pthread_t));
+    threadParamsY = (threadPoolY_t *)malloc(pool1_size* sizeof(threadPoolY_t));
     for(int i=0;i<pool1_size;i++){
         if (pthread_create(&pool1[i], NULL, pool1_func, (void *)i) != 0)
             {
