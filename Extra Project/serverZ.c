@@ -211,7 +211,7 @@ int main(int argc, char** argv){
     char msg1[513];
 
     /* Main Thread */
-    while (1){
+    while (!sig_int_flag){
 
         socklen_t socket_len = sizeof(serv_addr);
         int acceptfd = accept(socketfd,(struct sockaddr*)&serv_addr,&socket_len);
@@ -222,14 +222,15 @@ int main(int argc, char** argv){
         pthread_cond_signal(&condition_var);        
         pthread_mutex_unlock(&main_mutex);
 
-        if(sig_int_flag==1){
+        /*if(sig_int_flag==1){
            sprintf(msg1,"Z: SIGINT recieved, exiting serverZ. Total request:%d, invertible: %d, %d not\n",total_rec,invertible_counter,non_invertible_counter);
            print_ts(msg1,logFD);
            break;
-        }
+        }*/
     }
 
-
+    sprintf(msg1,"Z: SIGINT recieved, exiting serverZ. Total request:%d, invertible: %d, %d not\n",total_rec,invertible_counter,non_invertible_counter);
+    print_ts(msg1,logFD);
     /* Clean the mess */
 
    for(i=0;i<pool_size;i++){
@@ -439,11 +440,11 @@ void *pool_func(void* arg){
     
     int bytes=0; 
   
-    while(1){
+    while(!sig_int_flag){
 
-        if(sig_int_flag == 1){          
+        /*if(sig_int_flag == 1){          
             return NULL;
-        }
+        }*/
        
         pthread_mutex_lock(&main_mutex);
         //fprintf(stderr,"Thread %d mainMutex locked\n",threadParams.id);

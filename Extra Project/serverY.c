@@ -221,8 +221,7 @@ int main(int argc, char** argv){
         exit(-1);
     }
 
-    char msgpid[512];
-    sprintf(msgpid,"SERVERZ PID = %d\nSERVER Y %d\n",serverZ_pid,getpid());
+    
    
     /* ClientX connection Sockets*/
     struct sockaddr_in serv_addr;
@@ -278,7 +277,7 @@ int main(int argc, char** argv){
     /* Main thread */
 
     char msg[513];
-    while(1){
+    while(!sig_int_flag){
         
         
         socklen_t socket_len = sizeof(serv_addr);
@@ -308,16 +307,17 @@ int main(int argc, char** argv){
 
         
 
-        if(sig_int_flag==1){
+        /*if(sig_int_flag==1){
             sprintf(msg,"SIGINT recieved, terminating Z and exiting server Y. Total requests handled :  %d, %d is invertible, %d not. %d requests were forwarded.\n",total_rec, invertible_counter,non_invertible_counter,forwarded);
             print_ts(msg,logFD);
             break;
-        }
+        }*/
             
             
     }
 
-
+    sprintf(msg,"SIGINT recieved, terminating Z and exiting server Y. Total requests handled :  %d, %d is invertible, %d not. %d requests were forwarded.\n",total_rec, invertible_counter,non_invertible_counter,forwarded);
+    print_ts(msg,logFD);
     /* clean the mess */
     kill(serverZ_pid,SIGINT);
 
@@ -608,11 +608,11 @@ void* pool1_func(void* arg){
     
     int bytes = 0;
     threadPoolY_t threadParams = *((threadPoolY_t*)arg);
-    while(1){
+    while(!sig_int_flag){
         
-         if(sig_int_flag==1){
+        /* if(sig_int_flag==1){
             break;
-        }
+        }*/
 
         pthread_mutex_lock(&main_mutex);        
         if( (threadParams.socketfd = dequeue()) == 0){
@@ -726,7 +726,7 @@ void* pool2_func(void* arg){
     int bytes = 0;
     threadPoolZ_t threadParams = *((threadPoolZ_t*)arg);
 
-    while(1){
+    while(!sig_int_flag){
 
         if(sig_int_flag==1)
             break;
