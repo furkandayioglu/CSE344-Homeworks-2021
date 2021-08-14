@@ -234,29 +234,33 @@ int main(int argc, char** argv){
     /* Clean the mess */
 
    for(i=0;i<pool_size;i++){
-        fprintf(stderr,"Thread %d Reached cleaning\n",i);
+        //fprintf(stderr,"Thread %d Reached cleaning\n",i);
 
-        pthread_mutex_lock(&threadParams[i].mutex);
-        fprintf(stderr,"Thread %d mutex locked\n",i); 
+        //pthread_mutex_lock(&threadParams[i].mutex);
+        //fprintf(stderr,"Thread %d mutex locked\n",i); 
 
-        pthread_cond_signal(&threadParams[i].cond);
-        fprintf(stderr,"Thread %d cond signal sent\n",i);
+        //pthread_cond_signal(&threadParams[i].cond);
+        //fprintf(stderr,"Thread %d cond signal sent\n",i);
 
-        pthread_mutex_unlock(&threadParams[i].mutex);
-        fprintf(stderr,"Thread %d mutex unlocked\n",i);
+        //pthread_mutex_unlock(&threadParams[i].mutex);
+        //fprintf(stderr,"Thread %d mutex unlocked\n",i);
 
         pthread_join(pool[i],NULL);
-        fprintf(stderr,"Thread %d joined\n",i);
+        //fprintf(stderr,"Thread %d joined\n",i);
 
         pthread_mutex_destroy(&threadParams[i].mutex);
+        //fprintf(stderr,"Thread %d mutex destroyed\n",i);
         pthread_cond_destroy(&threadParams[i].cond);
-       
+        //fprintf(stderr,"Thread %d cond var destroyed\n",i);
     }
 
     free(pool);
     free(threadParams);
-    free(tail);
-    free(head);
+    while( head != NULL){
+        node_t* next = head ->next;
+        free(head);
+        head=next;
+    }
     close(socketfd);
     close(logFD);
    
@@ -438,31 +442,23 @@ void *pool_func(void* arg){
         
        
        
-        pthread_mutex_lock(&threadParams.mutex);
-        if(sig_int_flag == 1){
-            fprintf(stderr,"Thread %d got signal and threadMutex locked\n",threadParams.id);
-            pthread_cond_wait(&threadParams.cond,&threadParams.mutex);
-            
-            fprintf(stderr,"Thread %d get condition var signal \n",threadParams.id);
-            pthread_mutex_unlock(&threadParams.mutex);
-            fprintf(stderr,"Thread %d got signal and threadMutex unlocked\n",threadParams.id);
+        
+        if(sig_int_flag == 1){          
             return NULL;
         }
-        fprintf(stderr,"Thread %d threadMutex locked\n",threadParams.id);
-        pthread_mutex_unlock(&threadParams.mutex);
-        fprintf(stderr,"Thread %d threadMutex unlocked\n",threadParams.id);
+        
       
             
         pthread_mutex_lock(&main_mutex);
-        fprintf(stderr,"Thread %d mainMutex locked\n",threadParams.id);
+        //fprintf(stderr,"Thread %d mainMutex locked\n",threadParams.id);
         if( (threadParams.socketfd = dequeue()) == 0){
             pthread_cond_wait(&condition_var,&main_mutex);
-            fprintf(stderr,"Thread %d dequeued a connection\n",threadParams.id);
+            //fprintf(stderr,"Thread %d dequeued a connection\n",threadParams.id);
             threadParams.socketfd = dequeue();
         }
         pool_full++;
         pthread_mutex_unlock(&main_mutex);
-        fprintf(stderr,"Thread %d mainMutex unlocked\n",threadParams.id);   
+        //fprintf(stderr,"Thread %d mainMutex unlocked\n",threadParams.id);   
 
 
         if(sig_int_flag==0){
@@ -532,9 +528,9 @@ void *pool_func(void* arg){
                     exit(-1);
                 }
                 
-                pthread_mutex_lock(&main_mutex);
+                /*pthread_mutex_lock(&main_mutex);
                 pool_full--;
-                pthread_mutex_unlock(&main_mutex);
+                pthread_mutex_unlock(&main_mutex);*/
                 
                 for( i=0;i<matrix_size;i++){
                     free(matrix[i]);

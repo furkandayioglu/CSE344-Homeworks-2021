@@ -251,7 +251,7 @@ int dim_size(char* filename){
     input = fopen(filename,"r");
 
     if(input == NULL){
-        fprintf(stderr,"Input file could not be opened.\n");
+        fprintf(stderr,"Client #%d Input file could not be opened.\n",id_int);
         fprintf(stderr,"Terminating...\n");
         exit(-1);
     }
@@ -281,7 +281,7 @@ void fill_matrix(char* filename){
     input = fopen(filename,"r");
 
     if(input == NULL){
-        fprintf(stderr,"Input file could not be opened.\n");
+        fprintf(stderr,"Client #%d Input file could not be opened.\n",id_int);
         fprintf(stderr,"Terminating...\n");
         exit(-1);
     }

@@ -97,17 +97,22 @@ pthread_t* pool2;
 pthread_mutex_t main_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t pool1_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t pool2_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_cond_t cond_pool1 = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond_pool2 = PTHREAD_COND_INITIALIZER;
+
 pthread_cond_t condition_var = PTHREAD_COND_INITIALIZER;
 
 threadPoolY_t* threadParamsY;
 threadPoolZ_t* threadParamsZ;
 
 /* counter  */
-atomic_int pool1_full=0;
-atomic_int pool2_full=0;
-atomic_int invertible_counter=0;
-atomic_int non_invertible_counter=0;
-atomic_int total_rec=0;
+atomic_int pool1_full = 0;
+atomic_int pool2_full = 0;
+atomic_int invertible_counter = 0;
+atomic_int non_invertible_counter = 0;
+atomic_int total_rec = 0;
+atomic_int forwarded = 0;
 static volatile sig_atomic_t sig_int_flag=0;
 
 char* ipAddr;
@@ -195,7 +200,7 @@ int main(int argc, char** argv){
     int pid;
     /* Daemonize*/
 
-    //becomedeamon();    
+    becomedeamon();    
 
     logFD = open(logFile,O_CREAT|O_WRONLY|O_TRUNC,S_IRUSR|S_IWUSR);
 
@@ -249,7 +254,7 @@ int main(int argc, char** argv){
    threadParams_init();
 
     pool1 = (pthread_t *)calloc(pool1_size, sizeof(pthread_t));    
-    for(int i=0;i<pool1_size;i++){
+    for( i=0;i<pool1_size;i++){
         if (pthread_create(&pool1[i], NULL, pool1_func, &threadParamsY[i]) != 0)
             {
                 print_ts("Thread Creation failed\n",logFD);
@@ -258,7 +263,7 @@ int main(int argc, char** argv){
     }
 
     pool2 = (pthread_t *)calloc(pool2_size,sizeof(pthread_t));    
-    for(int i=0;i<pool2_size;i++){
+    for( i=0;i<pool2_size;i++){
         if (pthread_create(&pool2[i], NULL, pool2_func, &threadParamsZ[i]) != 0)
             {
                 print_ts("Thread Creation failed\n",2);
@@ -273,7 +278,7 @@ int main(int argc, char** argv){
 
     /* Main thread */
 
-
+    char msg[513];
     while(1){
 
         socklen_t socket_len = sizeof(serv_addr);
@@ -281,15 +286,18 @@ int main(int argc, char** argv){
 
         
 
-        phtread_mutex_lock(&main_mutex);
+        pthread_mutex_lock(&main_mutex);
         enqueue(acceptfd);
 
 
        if(pool1_full < pool1_size){
-           /* signal pool1*/
+           pthread_mutex_lock(&pool1_mutex);
+           pthread_cond_signal(&cond_pool1);
 
        }else{
-           /* signal pool2*/
+           pthread_mutex_lock(&pool2_mutex);
+           pthread_cond_signal(&cond_pool2);
+
        }
 
         pthread_mutex_unlock(&main_mutex);
@@ -298,8 +306,12 @@ int main(int argc, char** argv){
 
         
 
-        if(sig_int_flag==1)
+        if(sig_int_flag==1){
+            sprintf(msg,"SIGINT recieved, terminating Z and exiting server Y. Total requests handled :  %d, %d is invertible, %d not. %d requests were forwarded.\n",total_rec, invertible_counter,non_invertible_counter,forwarded);
+            print_ts(msg,logFD);
             break;
+        }
+            
             
     }
 
@@ -310,12 +322,58 @@ int main(int argc, char** argv){
 
 
     /* clean the mess */
+    kill(serverZ_pid,SIGINT);
+    for(i=0;i<pool1_size;i++){
+        //fprintf(stderr,"Thread %d Reached cleaning\n",i);
+
+        //pthread_mutex_lock(&threadParams[i].mutex);
+        //fprintf(stderr,"Thread %d mutex locked\n",i); 
+
+        //pthread_cond_signal(&threadParams[i].cond);
+        //fprintf(stderr,"Thread %d cond signal sent\n",i);
+
+        //pthread_mutex_unlock(&threadParams[i].mutex);
+        //fprintf(stderr,"Thread %d mutex unlocked\n",i);
+
+        pthread_join(pool1[i],NULL);
+        //fprintf(stderr,"Thread %d joined\n",i);
+
+        pthread_mutex_destroy(&threadParamsY[i].mutex);
+        //fprintf(stderr,"Thread %d mutex destroyed\n",i);
+        pthread_cond_destroy(&threadParamsY[i].cond);
+        //fprintf(stderr,"Thread %d cond var destroyed\n",i);
+    }
+
+    for(i=0;i<pool2_size;i++){
+        //fprintf(stderr,"Thread %d Reached cleaning\n",i);
+
+        //pthread_mutex_lock(&threadParams[i].mutex);
+        //fprintf(stderr,"Thread %d mutex locked\n",i); 
+
+        //pthread_cond_signal(&threadParams[i].cond);
+        //fprintf(stderr,"Thread %d cond signal sent\n",i);
+
+        //pthread_mutex_unlock(&threadParams[i].mutex);
+        //fprintf(stderr,"Thread %d mutex unlocked\n",i);
+
+        pthread_join(pool2[i],NULL);
+        //fprintf(stderr,"Thread %d joined\n",i);
+
+        pthread_mutex_destroy(&threadParamsZ[i].mutex);
+        //fprintf(stderr,"Thread %d mutex destroyed\n",i);
+        pthread_cond_destroy(&threadParamsZ[i].cond);
+        //fprintf(stderr,"Thread %d cond var destroyed\n",i);
+    }
+
     free(pool1);
     free(pool2);
     free(threadParamsY);
     free(threadParamsZ);
-    free(tail);
-    free(head);
+    while(head != NULL){
+        node_t* next = head ->next;
+        free(head);
+        head=next;
+    }
     close(logFD);
     close(socketfd);
 
@@ -532,7 +590,7 @@ int determinant(int**matrix, int size){
 }
 
 void signal_handler(int signo){
-    char msg[513];
+    
     switch (signo)
     {
         case SIGINT:
@@ -560,7 +618,8 @@ void* pool1_func(void* arg){
         /* @TODO Change cond variable    */
         pthread_mutex_lock(&main_mutex);
         if( (threadParams.socketfd = dequeue()) == 0){
-            pthread_cond_wait(&condition_var,&main_mutex);
+            pthread_cond_wait(&cond_pool1,&pool1_mutex);
+            pthread_mutex_unlock(&pool1_mutex);
             threadParams.socketfd = dequeue();
         }
         pool1_full++;
@@ -642,9 +701,9 @@ void* pool1_func(void* arg){
                     exit(-1);
                 }
 
-                pthread_mutex_lock(&main_mutex);
-                pool1_full--;
-                pthread_mutex_unlock(&main_mutex);
+               /* pthread_mutex_lock(&main_mutex);
+                pool2_full--;
+                pthread_mutex_unlock(&main_mutex);*/
 
                 for( i=0;i<matrix_size;i++){
                     free(matrix[i]);
@@ -654,7 +713,7 @@ void* pool1_func(void* arg){
 
             close(threadParams.socketfd);
             pthread_mutex_lock(&main_mutex);
-            pool1_full--;
+            pool2_full--;
             pthread_mutex_unlock(&main_mutex);
         }
 
@@ -676,9 +735,10 @@ void* pool2_func(void* arg){
 
 
         // change condition varible
-         pthread_mutex_lock(&main_mutex);
+        pthread_mutex_lock(&main_mutex);
         if( (threadParams.socketfd = dequeue()) == 0){
-            pthread_cond_wait(&condition_var,&main_mutex);
+            pthread_cond_wait(&cond_pool2,&pool2_mutex);
+            pthread_mutex_unlock(&pool2_mutex);
             threadParams.socketfd = dequeue();
         }
         pool2_full++;        
@@ -689,7 +749,7 @@ void* pool2_func(void* arg){
             int client_id;
             int matrix_size;
             int** matrix;
-            int det=0;
+            //int det=0;
             int response=0;
              
             if( threadParams.socketfd !=0 ){
@@ -768,6 +828,14 @@ void* pool2_func(void* arg){
                     exit(-1);
                 }
 
+                if(response == 0){
+                    non_invertible_counter++;
+                    forwarded++;
+                }else{
+                    invertible_counter++;
+                    forwarded++;    
+                }
+
                 /*return clientX response */    
                 if(write(threadParams.socketfd, &response , sizeof(response)) < 0){
                     print_ts("ID Send failed\n",logFD);
@@ -794,8 +862,11 @@ void* pool2_func(void* arg){
 
         }
        
+        }
+
+
+    
     }
 
-
     return 0;
-}
+}    
