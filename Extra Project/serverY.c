@@ -75,7 +75,7 @@ void cofactors(int** matrix, int** temp, int size, int i, int j);
 int determinant(int** matrix,int size);
 void signal_handler(int signo);
 void check_instance();
-//static void becomedeamon();
+static void becomedeamon();
 
 void enqueue(int client_socket);
 int dequeue();
@@ -200,7 +200,7 @@ int main(int argc, char** argv){
     int pid;
     /* Daemonize*/
 
-    //becomedeamon();    
+    becomedeamon();    
 
     logFD = open(logFile,O_CREAT|O_WRONLY|O_TRUNC,S_IRUSR|S_IWUSR);
 
@@ -214,14 +214,15 @@ int main(int argc, char** argv){
     if(pid == 0){
         serverZ_pid = getpid();
         execvp("./serverZ",args);
-        
+        exit(0);
     }else if(pid<0){
         /* fork Failed */ 
         print_ts("Fork for serverZ failed\nTerminating....\n",logFD);
         exit(-1);
     }
 
-   
+    char msgpid[512];
+    sprintf(msgpid,"SERVERZ PID = %d\nSERVER Y %d\n",serverZ_pid,getpid());
    
     /* ClientX connection Sockets*/
     struct sockaddr_in serv_addr;
@@ -395,7 +396,7 @@ void print_ts(char *msg,int fd)
     lock.l_type = F_WRLCK;
     fcntl(fd,F_SETLKW,&lock);
 
-   
+    lseek(fd,0,SEEK_END);
     write(fd, buffer, strlen(buffer));
 
     lock.l_type= F_UNLCK;
@@ -409,48 +410,48 @@ void print_usage()
     print_ts("./client -i ID -a 127.0.0.1 -p PORT -o pathToQueryFile\n",2);
 }
 
-// static void becomedeamon(){
-//     pid_t pid;
+static void becomedeamon(){
+    pid_t pid;
 
-//     /* Forks the parent process */
-//     if ((pid = fork())<0){
-//         unlink("running");
-//         exit(-1);
-//     }
+    /* Forks the parent process */
+    if ((pid = fork())<0){
+        unlink("running");
+        exit(-1);
+    }
 
-//     /* Terminates the parent process */
-//     if (pid > 0){
-//         exit(0);
-//     }
+    /* Terminates the parent process */
+    if (pid > 0){
+        exit(0);
+    }
 
-//     /*The forked process is session leader */
-//     if (setsid() < 0){
-//         unlink("running");
-//         exit(-1);
-//     }
+    /*The forked process is session leader */
+    if (setsid() < 0){
+        unlink("running");
+        exit(-1);
+    }
 
-//     /* Second fork */
-//     if((pid = fork())<0){
-//         unlink("running");
-//         exit(-1);
-//     }
+    /* Second fork */
+    if((pid = fork())<0){
+        unlink("running");
+        exit(-1);
+    }
 
-//     /* Parent termination */
-//     if (pid > 0){
-//         exit(0);
-//     }
+    /* Parent termination */
+    if (pid > 0){
+        exit(0);
+    }
 
-//     /* Unmasks */
-//     umask(0);
+    /* Unmasks */
+    umask(0);
 
-//     /* Appropriated directory changing */
-//     chdir(".");
+    /* Appropriated directory changing */
+    chdir(".");
 
-//     /* Close core  */
-//     close(STDERR_FILENO);
-//     close(STDOUT_FILENO);
-//     close(STDIN_FILENO);
-// }
+    /* Close core  */
+    close(STDERR_FILENO);
+    close(STDOUT_FILENO);
+    close(STDIN_FILENO);
+}
 
 void check_instance(){
     int pid_file = open("/tmp/serverY.pid", O_CREAT | O_RDWR,0666);
@@ -609,31 +610,22 @@ void* pool1_func(void* arg){
     threadPoolY_t threadParams = *((threadPoolY_t*)arg);
     while(1){
         
-        if(sig_int_flag==1){
+         if(sig_int_flag==1){
             break;
         }
 
-      
-
-        pthread_mutex_lock(&main_mutex);
-
-        
+        pthread_mutex_lock(&main_mutex);        
         if( (threadParams.socketfd = dequeue()) == 0){
-            pthread_mutex_unlock(&main_mutex);
-
-            
-
+            pthread_mutex_unlock(&main_mutex);    
             pthread_cond_wait(&cond_pool1,&pool1_mutex);
             pthread_mutex_unlock(&pool1_mutex);
-
-           
             threadParams.socketfd = dequeue();
         }
        
         pool1_full++;
         pthread_mutex_unlock(&main_mutex);
 
-
+ 
         /* handle calculation */
 
         if(sig_int_flag == 0){
@@ -739,9 +731,6 @@ void* pool2_func(void* arg){
         if(sig_int_flag==1)
             break;
 
-
-      
-
         pthread_mutex_lock(&main_mutex);
 
         
@@ -758,6 +747,7 @@ void* pool2_func(void* arg){
         pool2_full++; 
        
         pthread_mutex_unlock(&main_mutex);
+
 
         if(sig_int_flag == 0){
             int i=0,j=0;

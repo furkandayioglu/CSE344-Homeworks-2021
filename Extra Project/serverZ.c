@@ -61,7 +61,7 @@ void print_ts(char* msg,int fd);
 void print_usage();
 void threadPool_init();
 void check_instance();
-//static void becomedeamon();
+
 
 /* Variables */
 
@@ -105,8 +105,7 @@ int main(int argc, char** argv){
 
     sigaction(SIGINT,&sa,NULL);
 
-    //head = (node_t*) calloc(1,sizeof(node_t));
-    //tail = (node_t*) calloc(1,sizeof(node_t));
+
 
     check_instance();
     if (argc != 9)
@@ -156,7 +155,7 @@ int main(int argc, char** argv){
     }
 
     
-    //becomedeamon();
+    
 
     logFD = open(logFile,O_CREAT|O_WRONLY|O_APPEND,S_IRUSR|S_IWUSR);
    
@@ -279,10 +278,12 @@ void print_ts(char* msg,int fd){
     memset(&lock,0,sizeof(lock));
     lock.l_type = F_WRLCK;
 
-    fcntl(fd,F_SETLKW,&lock);
-    
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S ", currentTime);
     strcat(buffer, msg);
+
+    fcntl(fd,F_SETLKW,&lock);
+    
+    lseek(fd,0,SEEK_END);
     write(fd, buffer, strlen(buffer));
 
     lock.l_type= F_UNLCK;
@@ -308,48 +309,7 @@ void check_instance(){
     }
 }
 
-// static void becomedeamon(){
-//     pid_t pid;
 
-//     /* Forks the parent process */
-//     if ((pid = fork())<0){
-//         unlink("running");
-//         exit(-1);
-//     }
-
-//     /* Terminates the parent process */
-//     if (pid > 0){
-//         exit(0);
-//     }
-
-//     /*The forked process is session leader */
-//     if (setsid() < 0){
-//         unlink("running");
-//         exit(-1);
-//     }
-
-//     /* Second fork */
-//     if((pid = fork())<0){
-//         unlink("running");
-//         exit(-1);
-//     }
-
-//     /* Parent termination */
-//     if (pid > 0){
-//         exit(0);
-//     }
-
-//     /* Unmasks */
-//     umask(0);
-
-//     /* Appropriated directory changing */
-//     chdir(".");
-
-//     /* Close core  */
-//     close(STDERR_FILENO);
-//     close(STDOUT_FILENO);
-//     close(STDIN_FILENO);
-// }
 
 void threadPool_init(){
     int i=0;
@@ -480,16 +440,11 @@ void *pool_func(void* arg){
     int bytes=0; 
   
     while(1){
-        
-       
-       
-        
+
         if(sig_int_flag == 1){          
             return NULL;
         }
-        
-      
-            
+       
         pthread_mutex_lock(&main_mutex);
         //fprintf(stderr,"Thread %d mainMutex locked\n",threadParams.id);
         if( (threadParams.socketfd = dequeue()) == 0){
@@ -501,7 +456,7 @@ void *pool_func(void* arg){
         pthread_mutex_unlock(&main_mutex);
         //fprintf(stderr,"Thread %d mainMutex unlocked\n",threadParams.id);   
 
-
+                 
         if(sig_int_flag==0){
 
             int i=0,j=0;
