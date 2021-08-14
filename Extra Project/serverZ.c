@@ -61,7 +61,7 @@ void print_ts(char* msg,int fd);
 void print_usage();
 void threadPool_init();
 void check_instance();
-static void becomedeamon();
+//static void becomedeamon();
 
 /* Variables */
 
@@ -156,7 +156,7 @@ int main(int argc, char** argv){
     }
 
     
-    becomedeamon();
+    //becomedeamon();
 
     logFD = open(logFile,O_CREAT|O_WRONLY|O_APPEND,S_IRUSR|S_IWUSR);
    
@@ -308,48 +308,48 @@ void check_instance(){
     }
 }
 
-static void becomedeamon(){
-    pid_t pid;
+// static void becomedeamon(){
+//     pid_t pid;
 
-    /* Forks the parent process */
-    if ((pid = fork())<0){
-        unlink("running");
-        exit(-1);
-    }
+//     /* Forks the parent process */
+//     if ((pid = fork())<0){
+//         unlink("running");
+//         exit(-1);
+//     }
 
-    /* Terminates the parent process */
-    if (pid > 0){
-        exit(0);
-    }
+//     /* Terminates the parent process */
+//     if (pid > 0){
+//         exit(0);
+//     }
 
-    /*The forked process is session leader */
-    if (setsid() < 0){
-        unlink("running");
-        exit(-1);
-    }
+//     /*The forked process is session leader */
+//     if (setsid() < 0){
+//         unlink("running");
+//         exit(-1);
+//     }
 
-    /* Second fork */
-    if((pid = fork())<0){
-        unlink("running");
-        exit(-1);
-    }
+//     /* Second fork */
+//     if((pid = fork())<0){
+//         unlink("running");
+//         exit(-1);
+//     }
 
-    /* Parent termination */
-    if (pid > 0){
-        exit(0);
-    }
+//     /* Parent termination */
+//     if (pid > 0){
+//         exit(0);
+//     }
 
-    /* Unmasks */
-    umask(0);
+//     /* Unmasks */
+//     umask(0);
 
-    /* Appropriated directory changing */
-    chdir(".");
+//     /* Appropriated directory changing */
+//     chdir(".");
 
-    /* Close core  */
-    close(STDERR_FILENO);
-    close(STDOUT_FILENO);
-    close(STDIN_FILENO);
-}
+//     /* Close core  */
+//     close(STDERR_FILENO);
+//     close(STDOUT_FILENO);
+//     close(STDIN_FILENO);
+// }
 
 void threadPool_init(){
     int i=0;

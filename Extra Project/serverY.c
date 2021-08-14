@@ -75,7 +75,7 @@ void cofactors(int** matrix, int** temp, int size, int i, int j);
 int determinant(int** matrix,int size);
 void signal_handler(int signo);
 void check_instance();
-static void becomedeamon();
+//static void becomedeamon();
 
 void enqueue(int client_socket);
 int dequeue();
@@ -98,10 +98,10 @@ pthread_mutex_t main_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t pool1_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t pool2_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+pthread_cond_t condition_var = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cond_pool1 = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cond_pool2 = PTHREAD_COND_INITIALIZER;
 
-pthread_cond_t condition_var = PTHREAD_COND_INITIALIZER;
 
 threadPoolY_t* threadParamsY;
 threadPoolZ_t* threadParamsZ;
@@ -200,7 +200,7 @@ int main(int argc, char** argv){
     int pid;
     /* Daemonize*/
 
-    becomedeamon();    
+    //becomedeamon();    
 
     logFD = open(logFile,O_CREAT|O_WRONLY|O_TRUNC,S_IRUSR|S_IWUSR);
 
@@ -209,6 +209,7 @@ int main(int argc, char** argv){
     sprintf(msg_srv_init,"Server Y (127.0.0.1:%d, %s, l=%d t=%d, m=%d) started\nInstantiating Server Z\n",port,logFile,pool1_size,sleep_dur,pool2_size);
     print_ts(msg_srv_init,logFD);
 
+    print_ts("Before Fork \n",2);
     pid = fork();
     if(pid == 0){
         serverZ_pid = getpid();
@@ -220,7 +221,7 @@ int main(int argc, char** argv){
         exit(-1);
     }
 
-    
+    print_ts("after Fork \n",2);
    
     /* ClientX connection Sockets*/
     struct sockaddr_in serv_addr;
@@ -253,7 +254,8 @@ int main(int argc, char** argv){
 
    threadParams_init();
 
-    pool1 = (pthread_t *)calloc(pool1_size, sizeof(pthread_t));    
+    pool1 = (pthread_t *)calloc(pool1_size, sizeof(pthread_t));
+    pool2 = (pthread_t *)calloc(pool2_size,sizeof(pthread_t));     
     for( i=0;i<pool1_size;i++){
         if (pthread_create(&pool1[i], NULL, pool1_func, &threadParamsY[i]) != 0)
             {
@@ -262,7 +264,7 @@ int main(int argc, char** argv){
             }
     }
 
-    pool2 = (pthread_t *)calloc(pool2_size,sizeof(pthread_t));    
+        
     for( i=0;i<pool2_size;i++){
         if (pthread_create(&pool2[i], NULL, pool2_func, &threadParamsZ[i]) != 0)
             {
@@ -272,34 +274,31 @@ int main(int argc, char** argv){
     }
 
     
-
-
-
-
     /* Main thread */
 
     char msg[513];
     while(1){
-
+        
+        print_ts("Geldi mi 1\n",2) ; 
         socklen_t socket_len = sizeof(serv_addr);
         int acceptfd = accept(socketfd,(struct sockaddr*)&serv_addr,&socket_len);
 
-        
+        print_ts("Geldi mi 2\n",2) ;   
 
         pthread_mutex_lock(&main_mutex);
-        print_ts("Enqueue function\n",logFD);
+        
         enqueue(acceptfd);
-
+        fprintf(stderr,"Enqueue function %d enqueued \n",acceptfd);
 
        if(pool1_full < pool1_size){
-           print_ts("Pool1 available\n",logFD);
+           fprintf(stderr,"Pool1 available.. Pool 1 FULL : %d\n",pool1_full);
            pthread_mutex_lock(&pool1_mutex);
-           pthread_cond_signal(&cond_pool1);
+           pthread_cond_broadcast(&cond_pool1);
            
        }else{
-           print_ts("Pool1 full, pool2 available\n",logFD);
+           fprintf(stderr,"Pool1 full.. Pool 2 avaliable Pool2 Full : %d\n",pool2_full);
            pthread_mutex_lock(&pool2_mutex);
-           pthread_cond_signal(&cond_pool2);
+           pthread_cond_broadcast(&cond_pool2);
          
        }
 
@@ -408,48 +407,48 @@ void print_usage()
     print_ts("./client -i ID -a 127.0.0.1 -p PORT -o pathToQueryFile\n",2);
 }
 
-static void becomedeamon(){
-    pid_t pid;
+// static void becomedeamon(){
+//     pid_t pid;
 
-    /* Forks the parent process */
-    if ((pid = fork())<0){
-        unlink("running");
-        exit(-1);
-    }
+//     /* Forks the parent process */
+//     if ((pid = fork())<0){
+//         unlink("running");
+//         exit(-1);
+//     }
 
-    /* Terminates the parent process */
-    if (pid > 0){
-        exit(0);
-    }
+//     /* Terminates the parent process */
+//     if (pid > 0){
+//         exit(0);
+//     }
 
-    /*The forked process is session leader */
-    if (setsid() < 0){
-        unlink("running");
-        exit(-1);
-    }
+//     /*The forked process is session leader */
+//     if (setsid() < 0){
+//         unlink("running");
+//         exit(-1);
+//     }
 
-    /* Second fork */
-    if((pid = fork())<0){
-        unlink("running");
-        exit(-1);
-    }
+//     /* Second fork */
+//     if((pid = fork())<0){
+//         unlink("running");
+//         exit(-1);
+//     }
 
-    /* Parent termination */
-    if (pid > 0){
-        exit(0);
-    }
+//     /* Parent termination */
+//     if (pid > 0){
+//         exit(0);
+//     }
 
-    /* Unmasks */
-    umask(0);
+//     /* Unmasks */
+//     umask(0);
 
-    /* Appropriated directory changing */
-    chdir(".");
+//     /* Appropriated directory changing */
+//     chdir(".");
 
-    /* Close core  */
-    close(STDERR_FILENO);
-    close(STDOUT_FILENO);
-    close(STDIN_FILENO);
-}
+//     /* Close core  */
+//     close(STDERR_FILENO);
+//     close(STDOUT_FILENO);
+//     close(STDIN_FILENO);
+// }
 
 void check_instance(){
     int pid_file = open("/tmp/serverY.pid", O_CREAT | O_RDWR,0666);
@@ -614,10 +613,19 @@ void* pool1_func(void* arg){
 
         // Change condition varible 
         /* @TODO Change cond variable    */
+        print_ts("Pool1 Thread fonksiyonu Giris\n",2);
+
         pthread_mutex_lock(&main_mutex);
+
+        print_ts("Pool1 Thread fonksiyonu main mutex lock\n",2);
         if( (threadParams.socketfd = dequeue()) == 0){
+
+            print_ts("Pool1 Thread fonksiyonu dequeue null\n",2);
+
             pthread_cond_wait(&cond_pool1,&pool1_mutex);
             pthread_mutex_unlock(&pool1_mutex);
+
+            print_ts("Pool1 Thread fonksiyonu pool1 mutex unlock\n",2);
             threadParams.socketfd = dequeue();
         }
         pool1_full++;
@@ -733,11 +741,20 @@ void* pool2_func(void* arg){
 
 
         // change condition varible
+        print_ts("Pool2 Thread fonksiyonu Giris\n",2);
+
         pthread_mutex_lock(&main_mutex);
+
+        print_ts("Pool2 Thread fonksiyonu main mutex lock\n",2);
         if( (threadParams.socketfd = dequeue()) == 0){
+
+            print_ts("Pool2  Thread fonksiyonu dequeue null\n",2);
+
             pthread_cond_wait(&cond_pool2,&pool2_mutex);
             pthread_mutex_unlock(&pool2_mutex);
+
             threadParams.socketfd = dequeue();
+            print_ts("Pool1 Thread fonksiyonu pool1 mutex unlock\n",2);
         }
         pool2_full++;        
         pthread_mutex_unlock(&main_mutex);
