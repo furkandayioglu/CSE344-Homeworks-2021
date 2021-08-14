@@ -40,6 +40,7 @@ typedef struct threadPoolY_t{
     int status;
     int socketfd;
     pthread_mutex_t mutex;
+    pthread_cond_t cond;
     
 }threadPoolY_t;
 
@@ -49,11 +50,15 @@ typedef struct threadPoolZ_t{
     int full;
     int socketfd;
     int zsocketfd;
+    int connectionPort;
     pthread_mutex_t mutex;
+    pthread_cond_t cond;
+
 }threadPoolZ_t;
 
 
-
+node_t *head;
+node_t* tail;
 /* Thread Function */
 
 void *pool1_func(void* arg);
@@ -71,13 +76,19 @@ int determinant(int** matrix,int size);
 void signal_handler(int signo);
 void check_instance();
 static void becomedeamon();
-/* Helpers */ 
 
+void enqueue(int client_socket);
+int dequeue();
+
+
+
+
+/* Helpers */ 
 void print_ts(char *msg,int fd);
 void print_usage();
 void threadParams_init();
-threadPoolY_t* threadParamsY;
-threadPoolZ_t* threadParamsZ;
+
+
 
 /* Variables */
 
@@ -86,7 +97,10 @@ pthread_t* pool2;
 pthread_mutex_t main_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t pool1_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t pool2_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t condition_var = PTHREAD_COND_INITIALIZER;
 
+threadPoolY_t* threadParamsY;
+threadPoolZ_t* threadParamsZ;
 
 /* counter  */
 atomic_int pool1_full=0;
@@ -103,7 +117,7 @@ int pool2_size;
 int port;
 int sleep_dur;
 
-
+int socketfd;
 int logFD;
 pid_t temp_pid;
 int serverZ_pid;
@@ -172,42 +186,80 @@ int main(int argc, char** argv){
 
     char port_a[10];
     char time_a[10];
-
-    sprint(port_a,"%d",port+1);
+    char pool_a[10];
+    sprintf(port_a,"%d",port+1);
     sprintf(time_a,"%d",sleep_dur);
-    char * args[] = {"./serverZ","-p"};
+    sprintf(pool_a,"%d",pool2_size);
+
+    char * args[10] = {"./serverZ","-p",port_a,"-t",time_a,"-m",pool_a,"-o",logFile,NULL};
     int pid;
     /* Daemonize*/
 
     //becomedeamon();    
 
+    logFD = open(logFile,O_CREAT|O_WRONLY|O_TRUNC,S_IRUSR|S_IWUSR);
+
     /*Start Server Z */
+    char msg_srv_init[513];
+    sprintf(msg_srv_init,"Server Y (127.0.0.1:%d, %s, l=%d t=%d, m=%d) started\nInstantiating Server Z\n",port,logFile,pool1_size,sleep_dur,pool2_size);
+    print_ts(msg_srv_init,logFD);
+
+    pid = fork();
+    if(pid == 0){
+        serverZ_pid = getpid();
+        execvp("./serverZ",args);
+        
+    }else if(pid<0){
+        /* fork Failed */ 
+        print_ts("Fork for serverZ failed\nTerminating....\n",logFD);
+        exit(-1);
+    }
+
     
-    /* get serverZ Pid*/
-
-    /* Sockets*/
-
-
    
+    /* ClientX connection Sockets*/
+    struct sockaddr_in serv_addr;
+    memset(&serv_addr,'0',sizeof(serv_addr));
+    if((socketfd = socket(AF_INET, SOCK_STREAM, 0))<0){		// socket initialize
+	    print_ts("socket error!\n",logFD);
+        print_ts("Terminating...\n",logFD);
+	    exit(-1);
+    }
+    
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    serv_addr.sin_port = htons(port);
 
+    if((bind(socketfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) < 0){	// bind socket
+	    print_ts("bind error!\n",logFD);
+        print_ts("Terminating...\n",logFD);	
+	    exit(-1);
+	}
+
+    if((listen(socketfd, SERVERBACKLOG)) < 0){			// listen socket
+	    print_ts("listen error!\n",logFD);
+        print_ts("Terminating...\n",logFD);
+	    exit(-1);
+	}
 
     /* Create Threads and initiliaze Thread Pool */  
-    threadParams_init();
+   threadParamsY = (threadPoolY_t *)calloc(pool1_size, sizeof(threadPoolY_t));
+   threadParamsZ = (threadPoolZ_t *)malloc(pool2_size* sizeof(threadPoolZ_t));
 
-    pool1 = (pthread_t *)malloc(pool1_size* sizeof(pthread_t));
-    threadParamsY = (threadPoolY_t *)malloc(pool1_size* sizeof(threadPoolY_t));
+   threadParams_init();
+
+    pool1 = (pthread_t *)calloc(pool1_size, sizeof(pthread_t));    
     for(int i=0;i<pool1_size;i++){
-        if (pthread_create(&pool1[i], NULL, pool1_func, (void *)i) != 0)
+        if (pthread_create(&pool1[i], NULL, pool1_func, &threadParamsY[i]) != 0)
             {
-                print_ts("Thread Creation failed\n",2);
+                print_ts("Thread Creation failed\n",logFD);
                 exit(-1);
             }
     }
 
-    pool2 = (pthread_t *)calloc(pool2_size, sizeof(pthread_t));
-    threadParamsZ = (threadPoolZ_t *)calloc(pool2_size, sizeof(threadPoolZ_t));
+    pool2 = (pthread_t *)malloc(pool2_size*sizeof(pthread_t));    
     for(int i=0;i<pool2_size;i++){
-        if (pthread_create(&pool2[i], NULL, pool2_func, (void *)i) != 0)
+        if (pthread_create(&pool2[i], NULL, pool2_func, &threadParamsZ[i]) != 0)
             {
                 print_ts("Thread Creation failed\n",2);
                 exit(-1);
@@ -222,6 +274,34 @@ int main(int argc, char** argv){
     /* Main thread */
 
 
+    while(1){
+
+        socklen_t socket_len = sizeof(serv_addr);
+        int acceptfd = accept(socketfd,(struct sockaddr*)&serv_addr,&socket_len);
+
+        
+
+        phtread_mutex_lock(&main_mutex);
+        enqueue(acceptfd);
+
+
+       if(pool1_full < pool1_size){
+           /* signal pool1*/
+
+       }else{
+           /* signal pool2*/
+       }
+
+        pthread_mutex_unlock(&main_mutex);
+        
+
+
+        
+
+        if(sig_int_flag==1)
+            break;
+            
+    }
 
 
 
@@ -229,10 +309,15 @@ int main(int argc, char** argv){
 
 
 
-
-    /* clean mess */
-
-
+    /* clean the mess */
+    free(pool1);
+    free(pool2);
+    free(threadParamsY);
+    free(threadParamsZ);
+    free(tail);
+    free(head);
+    close(logFD);
+    close(socketfd);
 
 
 
@@ -323,6 +408,43 @@ void check_instance(){
     }
 }
 
+void enqueue(int client_socket){
+    node_t *newnode = (node_t*) calloc(1,sizeof(node_t));
+    
+    
+    newnode->client_socket = client_socket;
+    newnode->next = NULL;
+
+    if(tail == NULL){
+        head = newnode;
+    }else{
+        tail->next= newnode;
+    }
+
+    tail=newnode;
+
+}
+
+int dequeue(){
+
+    if(head==NULL){
+        return 0;
+    }
+        
+    else{
+
+        int res = head->client_socket;
+        node_t* temp = head;
+        head=head->next;
+        if(head == NULL){
+            tail=NULL;
+        }
+        free(temp);
+        return res;
+    } 
+
+}
+
 void threadParams_init(){
     for(int i=0;i<pool1_size;i++){
         threadParamsY[i].id=i;
@@ -330,7 +452,11 @@ void threadParams_init(){
         threadParamsY[i].full = 0;
         threadParamsY[i].socketfd=0;
         if(pthread_mutex_init(&threadParamsY[i].mutex,NULL)!=0){								// initialize mutex and condition variables
-			print_ts("Mutex initialize failed!!!. Terminating...",2);
+			print_ts("Mutex initialize failed!!!. Terminating...",logFD);
+			exit(-1);
+		}
+        if(pthread_cond_init(&threadParamsY[i].cond,NULL)!=0){								// initialize mutex and condition variables
+			print_ts("Condition Variable initialize failed!!!. Terminating...",logFD);
 			exit(-1);
 		}
     }
@@ -340,8 +466,13 @@ void threadParams_init(){
         threadParamsZ[i].status=0;
         threadParamsZ[i].full = 0;
         threadParamsZ[i].socketfd=0;
+        threadParamsZ[i].connectionPort = port+1;
         if(pthread_mutex_init(&threadParamsZ[i].mutex,NULL)!=0){								// initialize mutex and condition variables
-			print_ts("Mutex initialize failed!!!. Terminating...",2);
+			print_ts("Mutex initialize failed!!!. Terminating...",logFD);
+			exit(-1);
+		}
+         if(pthread_cond_init(&threadParamsZ[i].cond,NULL)!=0){								// initialize mutex and condition variables
+			print_ts("Condition Variable initialize failed!!!. Terminating...",logFD);
 			exit(-1);
 		}
     }
@@ -401,9 +532,54 @@ int determinant(int**matrix, int size){
 }
 
 void signal_handler(int signo){
-
+    char msg[513];
+    switch (signo)
+    {
+        case SIGINT:
+            sig_int_flag = 1;
+            break;
+    
+        default:
+            break;
+    }
 }
 
-void* pool1_func(void* arg){}
+void* pool1_func(void* arg){
+    /* pool 1 */
 
-void* pool2_func(void* arg){}
+    
+    int bytes = 0;
+    threadPoolY_t threadParams = *((threadPoolY_t*)arg);
+    while(1){
+        
+        if(sig_int_flag==1){
+            break;
+        }
+
+        pthread_mutex_lock(&main_mutex);
+        if( (threadParams.socketfd = dequeue()) == 0){
+            pthread_cond_wait(&condition_var,&main_mutex);
+            threadParams.socketfd = dequeue();
+        }
+        pool1_full++;
+        pthread_mutex_unlock(&main_mutex);
+
+
+        /* handle calculation */
+
+    }
+    
+    return NULL;
+}
+
+void* pool2_func(void* arg){
+
+    int bytes = 0;
+    threadPoolZ_t threadParams = *((threadPoolZ_t*)arg);
+
+    while(1){
+
+        if(sig_int_flag==1)
+            break;
+    }
+}

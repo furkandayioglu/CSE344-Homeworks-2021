@@ -36,8 +36,8 @@ typedef struct threadPool_t{
     int full;
     int status;
     int socketfd;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
+   //pthread_mutex_t mutex;
+   // pthread_cond_t cond;
 }threadPool_t;
 
 
@@ -61,7 +61,7 @@ void print_ts(char* msg,int fd);
 void print_usage();
 void threadPool_init();
 void check_instance();
-static void becomedeamon();
+
 
 /* Variables */
 
@@ -105,6 +105,8 @@ int main(int argc, char** argv){
 
     sigaction(SIGINT,&sa,NULL);
 
+    head = (node_t*) calloc(1,sizeof(node_t));
+    //tail = (node_t*) calloc(1,sizeof(node_t));
 
     check_instance();
     if (argc != 9)
@@ -155,11 +157,8 @@ int main(int argc, char** argv){
 
     
 
-    /* Deamonize */
 
-    //becomedeamon();
-
-    logFD = open(logFile,O_CREAT|O_WRONLY|O_TRUNC,S_IRUSR|S_IWUSR);
+    logFD = open(logFile,O_CREAT|O_WRONLY|O_APPEND,S_IRUSR|S_IWUSR);
    
     /* server creation */ 
     struct sockaddr_in serv_addr;
@@ -193,14 +192,16 @@ int main(int argc, char** argv){
 
 
     /* Create threads */
-    threadParams = (threadPool_t *)malloc(pool_size* sizeof(threadPool_t));
+    threadParams = (threadPool_t *)calloc(pool_size, sizeof(threadPool_t));
     threadPool_init();
 
-    pool = (pthread_t *)malloc(pool_size*sizeof(pthread_t));
+    pool = (pthread_t *)calloc(pool_size,sizeof(pthread_t));
     
     for(i=0;i<pool_size;i++){
-       
-        if (pthread_create(&pool[i], NULL, pool_func, &i) != 0)
+        /*pthread_attr_t attr;
+        pthread_attr_init(&attr);
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);*/
+        if (pthread_create(&pool[i], NULL , pool_func, &threadParams[i]) != 0)
             {
                 print_ts("Thread Creation failed\n",logFD);
                 exit(-1);
@@ -219,8 +220,7 @@ int main(int argc, char** argv){
        
         pthread_mutex_lock(&main_mutex);
         enqueue(acceptfd);
-        pthread_cond_signal(&condition_var);
-        
+        pthread_cond_signal(&condition_var);        
         pthread_mutex_unlock(&main_mutex);
 
         if(sig_int_flag==1){
@@ -233,20 +233,9 @@ int main(int argc, char** argv){
 
     /* Clean the mess */
 
-    /*for(i=0;i<pool_size;i++){
-        fprintf(stderr,"Thread %d Reached cleaning",i);
-        pthread_mutex_lock(&threadParams[i].mutex);        
-        pthread_cond_signal(&threadParams[i].cond);
-        pthread_mutex_unlock(&threadParams[i].mutex);
-
+    /*for(i =0 ;i<pool_size;i++){
         pthread_join(pool[i],NULL);
-        
-        pthread_mutex_destroy(&threadParams[i].mutex);
-        pthread_cond_destroy(&threadParams[i].cond);
-
-       fprintf(stderr,"Thread %d joined",i);
     }*/
-   
 
     free(pool);
     free(threadParams);
@@ -299,48 +288,7 @@ void check_instance(){
     }
 }
 
-static void becomedeamon(){
-    pid_t pid;
 
-    /* Forks the parent process */
-    if ((pid = fork())<0){
-        unlink("running");
-        exit(-1);
-    }
-
-    /* Terminates the parent process */
-    if (pid > 0){
-        exit(0);
-    }
-
-    /*The forked process is session leader */
-    if (setsid() < 0){
-        unlink("running");
-        exit(-1);
-    }
-
-    /* Second fork */
-    if((pid = fork())<0){
-        unlink("running");
-        exit(-1);
-    }
-
-    /* Parent termination */
-    if (pid > 0){
-        exit(0);
-    }
-
-    /* Unmasks */
-    umask(0);
-
-    /* Appropriated directory changing */
-    chdir(".");
-
-    /* Close core  */
-    close(STDERR_FILENO);
-    close(STDOUT_FILENO);
-    close(STDIN_FILENO);
-}
 
 void threadPool_init(){
     int i=0;
@@ -351,7 +299,7 @@ void threadPool_init(){
         threadParams[i].full = 0;
         threadParams[i].socketfd=0;
         
-        if(pthread_mutex_init(&threadParams[i].mutex,NULL)!=0){								// initialize mutex and condition variables
+       /* if(pthread_mutex_init(&threadParams[i].mutex,NULL)!=0){								// initialize mutex and condition variables
 			print_ts("Z: mutex initialize failed!\nTerminating...\n",logFD);
 			exit(-1);
 		}
@@ -359,7 +307,7 @@ void threadPool_init(){
         if(pthread_cond_init(&threadParams[i].cond,NULL)!=0){
 			print_ts("Z: condtion variable initialize failed!\nTerminating...\n",logFD);
 			exit(EXIT_FAILURE);
-		}
+		}*/
     }
 
 }
@@ -430,11 +378,6 @@ void enqueue(int client_socket){
         tail->next= newnode;
     }
 
-   /* while(temp != NULL){
-         fprintf(stderr,"Enqueue :%d \n",temp->client_socket);
-         temp = temp->next;
-    }*/
-       
     tail=newnode;
 }
 
@@ -471,35 +414,29 @@ void signal_handler(int signo){
 
 void *pool_func(void* arg){
   
-    int id = *((int *)arg);
-    //free(arg);
+    threadPool_t threadParams = *((threadPool_t *)arg);
+    
     int bytes=0; 
-    //char msg[100];
-	//sprintf(msg,"Z: Thread #%d: waiting for connection\n",id);
-   
+  
     while(1){
         
-        //print_ts(msg,logFD);
-        //pthread_mutex_lock(&threadParams[id].mutex);
+       
+       
         if(sig_int_flag == 1){
-            
-            /*pthread_cond_wait(&threadParams[id].cond,&threadParams[id].mutex);
-            print_ts("Thread got signal\n",2);
-            pthread_mutex_unlock(&threadParams[id].mutex);*/
+                      
             return NULL;
         }
-        //pthread_mutex_unlock(&threadParams[id].mutex);
+       
       
             
         pthread_mutex_lock(&main_mutex);
-        if( (threadParams[id].socketfd = dequeue()) == 0){
+        if( (threadParams.socketfd = dequeue()) == 0){
             pthread_cond_wait(&condition_var,&main_mutex);
-            threadParams[id].socketfd = dequeue();
+            threadParams.socketfd = dequeue();
         }
         pool_full++;
         pthread_mutex_unlock(&main_mutex);
-        
-       
+               
         if(sig_int_flag==0){
 
             int i=0,j=0;
@@ -509,12 +446,12 @@ void *pool_func(void* arg){
             int det=0;
             int response=0;
             
-            if(threadParams[id].socketfd != 0){
-                if((bytes = read(threadParams[id].socketfd,&client_id,sizeof(client_id)))<0){
+            if(threadParams.socketfd != 0){
+                if((bytes = read(threadParams.socketfd,&client_id,sizeof(client_id)))<0){
                     print_ts("Z: Recieve error Client_id\nTerminating...\n",logFD);
                 }
 
-                if((bytes = read(threadParams[id].socketfd,&matrix_size,sizeof(matrix_size)))<0){
+                if((bytes = read(threadParams.socketfd,&matrix_size,sizeof(matrix_size)))<0){
                     print_ts("Z: Recieve error Matrix_size\nTerminating...\n",logFD);
                 }
 
@@ -523,12 +460,10 @@ void *pool_func(void* arg){
                     matrix[i] = (int*) calloc(matrix_size,sizeof(int));
                 }
 
-
-
                 for( i=0;i<matrix_size;i++){        
                     for( j=0;j<matrix_size;j++){
                         int temp;
-                        if((bytes = read(threadParams[id].socketfd,&temp,sizeof(temp)))<0){
+                        if((bytes = read(threadParams.socketfd,&temp,sizeof(temp)))<0){
                             print_ts("Z: Recieve error Matrix\nTerminating...\n",logFD);
                             exit(-1);
                         }
@@ -539,7 +474,7 @@ void *pool_func(void* arg){
                 }
 
                 char clHndMsg[513];
-                sprintf(clHndMsg,"Z: Thread #%d is handling Client #%d: matrix size %dx%d, pool busy %d/%d\n",id,client_id,matrix_size,matrix_size,pool_full,pool_size);
+                sprintf(clHndMsg,"Z: Thread #%d is handling Client #%d: matrix size %dx%d, pool busy %d/%d\n",threadParams.id,client_id,matrix_size,matrix_size,pool_full,pool_size);
                 print_ts(clHndMsg,logFD);
 
                 det = determinant(matrix,matrix_size);
@@ -556,26 +491,29 @@ void *pool_func(void* arg){
 
                 char clRspMsg[513];
                 if(response == 0)
-                    sprintf(clRspMsg,"Z: Thread #%d is responding Client #%d: matrix IS non-invertible\n",id,client_id);
+                    sprintf(clRspMsg,"Z: Thread #%d is responding Client #%d: matrix IS non-invertible\n",threadParams.id,client_id);
                 else
-                    sprintf(clRspMsg,"Z: Thread #%d is responding Client #%d: matrix IS invertible \n",id,client_id);
+                    sprintf(clRspMsg,"Z: Thread #%d is responding Client #%d: matrix IS invertible \n",threadParams.id,client_id);
             
                 print_ts(clRspMsg,logFD);
 
-                if( write(threadParams[id].socketfd, &response , sizeof(response)) < 0)
+                if( write(threadParams.socketfd, &response , sizeof(response)) < 0)
                 {
                     print_ts("Z: Response Send Fail\n",logFD);
                     print_ts("\n Terminating... \n",logFD);
                     exit(-1);
                 }
-
+                
+                pthread_mutex_lock(&main_mutex);
+                pool_full--;
+                pthread_mutex_unlock(&main_mutex);
+                
                 for( i=0;i<matrix_size;i++){
                     free(matrix[i]);
                 }
                 free(matrix);
-            }
-            
-            close(threadParams[id].socketfd);
+            }            
+            close(threadParams.socketfd);
 
             pthread_mutex_lock(&main_mutex);
             pool_full--;
