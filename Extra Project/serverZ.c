@@ -569,9 +569,7 @@ void *pool_func(void* arg){
                     exit(-1);
                 }
                 
-                /*pthread_mutex_lock(&main_mutex);
-                pool_full--;
-                pthread_mutex_unlock(&main_mutex);*/
+            
                 
                 for( i=0;i<matrix_size;i++){
                     free(matrix[i]);

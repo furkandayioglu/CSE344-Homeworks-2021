@@ -209,7 +209,7 @@ int main(int argc, char** argv){
     sprintf(msg_srv_init,"Server Y (127.0.0.1:%d, %s, l=%d t=%d, m=%d) started\nInstantiating Server Z\n",port,logFile,pool1_size,sleep_dur,pool2_size);
     print_ts(msg_srv_init,logFD);
 
-    print_ts("Before Fork \n",2);
+    
     pid = fork();
     if(pid == 0){
         serverZ_pid = getpid();
@@ -221,7 +221,7 @@ int main(int argc, char** argv){
         exit(-1);
     }
 
-    print_ts("after Fork \n",2);
+   
    
     /* ClientX connection Sockets*/
     struct sockaddr_in serv_addr;
@@ -279,26 +279,25 @@ int main(int argc, char** argv){
     char msg[513];
     while(1){
         
-        print_ts("Geldi mi 1\n",2) ; 
+        
         socklen_t socket_len = sizeof(serv_addr);
         int acceptfd = accept(socketfd,(struct sockaddr*)&serv_addr,&socket_len);
 
-        print_ts("Geldi mi 2\n",2) ;   
+         
 
-        pthread_mutex_lock(&main_mutex);
-        
+        pthread_mutex_lock(&main_mutex);        
         enqueue(acceptfd);
-        fprintf(stderr,"Enqueue function %d enqueued \n",acceptfd);
+       
 
        if(pool1_full < pool1_size){
-           fprintf(stderr,"Pool1 available.. Pool 1 FULL : %d\n",pool1_full);
-           pthread_mutex_lock(&pool1_mutex);
-           pthread_cond_broadcast(&cond_pool1);
+           //fprintf(stderr,"Pool1 available.. Pool 1 FULL : %d\n",pool1_full);
+           
+           pthread_cond_signal(&cond_pool1);
            
        }else{
-           fprintf(stderr,"Pool1 full.. Pool 2 avaliable Pool2 Full : %d\n",pool2_full);
-           pthread_mutex_lock(&pool2_mutex);
-           pthread_cond_broadcast(&cond_pool2);
+           //fprintf(stderr,"Pool1 full.. Pool 2 avaliable Pool2 Full : %d\n",pool2_full);
+           
+           pthread_cond_signal(&cond_pool2);
          
        }
 
@@ -320,6 +319,7 @@ int main(int argc, char** argv){
 
     /* clean the mess */
     kill(serverZ_pid,SIGINT);
+
     for(i=0;i<pool1_size;i++){
         //fprintf(stderr,"Thread %d Reached cleaning\n",i);
 
@@ -388,12 +388,14 @@ void print_ts(char *msg,int fd)
     time_t timeCurrent = time(0);
     currentTime = gmtime(&timeCurrent);
 
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S ", currentTime);
+    strcat(buffer, msg);
+
     memset(&lock,0,sizeof(lock));
     lock.l_type = F_WRLCK;
     fcntl(fd,F_SETLKW,&lock);
 
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S ", currentTime);
-    strcat(buffer, msg);
+   
     write(fd, buffer, strlen(buffer));
 
     lock.l_type= F_UNLCK;
@@ -611,23 +613,23 @@ void* pool1_func(void* arg){
             break;
         }
 
-        // Change condition varible 
-        /* @TODO Change cond variable    */
-        print_ts("Pool1 Thread fonksiyonu Giris\n",2);
+      
 
         pthread_mutex_lock(&main_mutex);
 
-        print_ts("Pool1 Thread fonksiyonu main mutex lock\n",2);
+        
         if( (threadParams.socketfd = dequeue()) == 0){
+            pthread_mutex_unlock(&main_mutex);
 
-            print_ts("Pool1 Thread fonksiyonu dequeue null\n",2);
+            
 
             pthread_cond_wait(&cond_pool1,&pool1_mutex);
             pthread_mutex_unlock(&pool1_mutex);
 
-            print_ts("Pool1 Thread fonksiyonu pool1 mutex unlock\n",2);
+           
             threadParams.socketfd = dequeue();
         }
+       
         pool1_full++;
         pthread_mutex_unlock(&main_mutex);
 
@@ -673,7 +675,7 @@ void* pool1_func(void* arg){
                 }
 
                 char clHndMsg[513];
-                sprintf(clHndMsg,"Z: Thread #%d of pool1 is handling Client #%d: matrix size %dx%d, pool busy %d/%d\n",threadParams.id,client_id,matrix_size,matrix_size,pool1_full,pool1_size);
+                sprintf(clHndMsg,"Thread #%d of pool1 is handling Client #%d: matrix size %dx%d, pool busy %d/%d\n",threadParams.id,client_id,matrix_size,matrix_size,pool1_full,pool1_size);
                 print_ts(clHndMsg,logFD);
 
 
@@ -707,9 +709,7 @@ void* pool1_func(void* arg){
                     exit(-1);
                 }
 
-               /* pthread_mutex_lock(&main_mutex);
-                pool2_full--;
-                pthread_mutex_unlock(&main_mutex);*/
+          
 
                 for( i=0;i<matrix_size;i++){
                     free(matrix[i]);
@@ -719,7 +719,7 @@ void* pool1_func(void* arg){
 
             close(threadParams.socketfd);
             pthread_mutex_lock(&main_mutex);
-            pool2_full--;
+            pool1_full--;
             pthread_mutex_unlock(&main_mutex);
         }
 
@@ -740,23 +740,23 @@ void* pool2_func(void* arg){
             break;
 
 
-        // change condition varible
-        print_ts("Pool2 Thread fonksiyonu Giris\n",2);
+      
 
         pthread_mutex_lock(&main_mutex);
 
-        print_ts("Pool2 Thread fonksiyonu main mutex lock\n",2);
+        
         if( (threadParams.socketfd = dequeue()) == 0){
-
-            print_ts("Pool2  Thread fonksiyonu dequeue null\n",2);
+            pthread_mutex_unlock(&main_mutex);
+            
 
             pthread_cond_wait(&cond_pool2,&pool2_mutex);
             pthread_mutex_unlock(&pool2_mutex);
 
             threadParams.socketfd = dequeue();
-            print_ts("Pool1 Thread fonksiyonu pool1 mutex unlock\n",2);
+           
         }
-        pool2_full++;        
+        pool2_full++; 
+       
         pthread_mutex_unlock(&main_mutex);
 
         if(sig_int_flag == 0){
@@ -792,7 +792,10 @@ void* pool2_func(void* arg){
                         matrix[i][j]=temp;
                    
                     }
-
+                
+                char clHndMsg[513];
+                sprintf(clHndMsg,"Thread #%d of pool2 is handling Client #%d: matrix size %dx%d, pool busy %d/%d\n",threadParams.id,client_id,matrix_size,matrix_size,pool2_full,pool2_size);
+                print_ts(clHndMsg,logFD);
                 /* create connection to z */
 
                 struct sockaddr_in server_addr;
@@ -850,7 +853,14 @@ void* pool2_func(void* arg){
                     invertible_counter++;
                     forwarded++;    
                 }
+                total_rec++;
+               /* char clRspMsg[513];
+                if(response == 0)
+                    sprintf(clRspMsg,"Thread #%d of pool2 is responding Client #%d, matrix IS non-invertible\n",threadParams.id,client_id);
+                else
+                    sprintf(clRspMsg,"Thread #%d of pool2 is responding Cliend #%d, matrix IS invertible\n",threadParams.id,client_id);
 
+                print_ts(clRspMsg,logFD);*/
                 /*return clientX response */    
                 if(write(threadParams.socketfd, &response , sizeof(response)) < 0){
                     print_ts("ID Send failed\n",logFD);
@@ -858,9 +868,7 @@ void* pool2_func(void* arg){
                     exit(-1);
                 }
                 
-                pthread_mutex_lock(&main_mutex);
-                pool2_full--;
-                pthread_mutex_unlock(&main_mutex);
+               
                 
                 for( i=0;i<matrix_size;i++){
                     free(matrix[i]);
