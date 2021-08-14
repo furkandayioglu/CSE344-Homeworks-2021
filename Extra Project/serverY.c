@@ -49,7 +49,7 @@ typedef struct threadPoolZ_t{
     int status;
     int full;
     int socketfd;
-    int zsocketfd;
+    //int zsocketfd;
     int connectionPort;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
@@ -105,9 +105,9 @@ threadPoolZ_t* threadParamsZ;
 /* counter  */
 atomic_int pool1_full=0;
 atomic_int pool2_full=0;
-atomic_int invertible_counter;
-atomic_int non_invertible_counter;
-
+atomic_int invertible_counter=0;
+atomic_int non_invertible_counter=0;
+atomic_int total_rec=0;
 static volatile sig_atomic_t sig_int_flag=0;
 
 char* ipAddr;
@@ -244,7 +244,7 @@ int main(int argc, char** argv){
 
     /* Create Threads and initiliaze Thread Pool */  
    threadParamsY = (threadPoolY_t *)calloc(pool1_size, sizeof(threadPoolY_t));
-   threadParamsZ = (threadPoolZ_t *)malloc(pool2_size* sizeof(threadPoolZ_t));
+   threadParamsZ = (threadPoolZ_t *)calloc(pool2_size, sizeof(threadPoolZ_t));
 
    threadParams_init();
 
@@ -257,7 +257,7 @@ int main(int argc, char** argv){
             }
     }
 
-    pool2 = (pthread_t *)malloc(pool2_size*sizeof(pthread_t));    
+    pool2 = (pthread_t *)calloc(pool2_size,sizeof(pthread_t));    
     for(int i=0;i<pool2_size;i++){
         if (pthread_create(&pool2[i], NULL, pool2_func, &threadParamsZ[i]) != 0)
             {
@@ -556,6 +556,8 @@ void* pool1_func(void* arg){
             break;
         }
 
+        // Change condition varible 
+        /* @TODO Change cond variable    */
         pthread_mutex_lock(&main_mutex);
         if( (threadParams.socketfd = dequeue()) == 0){
             pthread_cond_wait(&condition_var,&main_mutex);
@@ -566,6 +568,96 @@ void* pool1_func(void* arg){
 
 
         /* handle calculation */
+
+        if(sig_int_flag == 0){
+
+            int i=0,j=0;
+            int client_id=0;
+            int matrix_size=0;
+            int** matrix;
+            int det=0;
+            int response=0;
+
+
+            if(threadParams.socketfd != 0){
+                if((bytes = read(threadParams.socketfd,&client_id,sizeof(client_id)))<0){
+                    print_ts("Z: Recieve error Client_id\nTerminating...\n",logFD);
+                }
+
+                if((bytes = read(threadParams.socketfd,&matrix_size,sizeof(matrix_size)))<0){
+                    print_ts("Z: Recieve error Matrix_size\nTerminating...\n",logFD);
+                }
+
+                matrix = (int**) calloc(matrix_size,sizeof(int*));
+                for( i=0;i< matrix_size;i++){
+                    matrix[i] = (int*) calloc(matrix_size,sizeof(int));
+                }
+
+
+                for( i=0;i<matrix_size;i++){        
+                    for( j=0;j<matrix_size;j++){
+                        int temp;
+                        if((bytes = read(threadParams.socketfd,&temp,sizeof(temp)))<0){
+                            print_ts("Z: Recieve error Matrix\nTerminating...\n",logFD);
+                            exit(-1);
+                        }
+                        matrix[i][j]=temp;
+                   
+                    }
+            
+                }
+
+                char clHndMsg[513];
+                sprintf(clHndMsg,"Z: Thread #%d of pool1 is handling Client #%d: matrix size %dx%d, pool busy %d/%d\n",threadParams.id,client_id,matrix_size,matrix_size,pool1_full,pool1_size);
+                print_ts(clHndMsg,logFD);
+
+
+                det = determinant(matrix,matrix_size);
+
+                if(det == 0){
+                    response = 0;
+                    ++non_invertible_counter;
+                }else{
+                    response = 1;
+                    ++invertible_counter;
+                }
+
+
+                total_rec++;
+                sleep(sleep_dur);    
+
+                char clRspMsg[513];
+                if(response == 0)
+                    sprintf(clRspMsg,"Thread #%d of pool1 is responding Client #%d, matrix IS non-invertible\n",threadParams.id,client_id);
+                else
+                    sprintf(clRspMsg,"Thread #%d of pool1 is responding Cliend #%d, matrix IS invertible\n",threadParams.id,client_id);
+
+                print_ts(clRspMsg,logFD);
+
+
+                if( write(threadParams.socketfd, &response , sizeof(response)) < 0)
+                {
+                    print_ts("Response Send Fail\n",logFD);
+                    print_ts("\n Terminating... \n",logFD);
+                    exit(-1);
+                }
+
+                pthread_mutex_lock(&main_mutex);
+                pool1_full--;
+                pthread_mutex_unlock(&main_mutex);
+
+                for( i=0;i<matrix_size;i++){
+                    free(matrix[i]);
+                }
+                free(matrix);   
+            }
+
+            close(threadParams.socketfd);
+            pthread_mutex_lock(&main_mutex);
+            pool1_full--;
+            pthread_mutex_unlock(&main_mutex);
+        }
+
 
     }
     
@@ -581,5 +673,129 @@ void* pool2_func(void* arg){
 
         if(sig_int_flag==1)
             break;
+
+
+        // change condition varible
+         pthread_mutex_lock(&main_mutex);
+        if( (threadParams.socketfd = dequeue()) == 0){
+            pthread_cond_wait(&condition_var,&main_mutex);
+            threadParams.socketfd = dequeue();
+        }
+        pool2_full++;        
+        pthread_mutex_unlock(&main_mutex);
+
+        if(sig_int_flag == 0){
+            int i=0,j=0;
+            int client_id;
+            int matrix_size;
+            int** matrix;
+            int det=0;
+            int response=0;
+             
+            if( threadParams.socketfd !=0 ){
+                
+                if((bytes = read(threadParams.socketfd,&client_id,sizeof(client_id)))<0){
+                    print_ts("Z: Recieve error Client_id\nTerminating...\n",logFD);
+                }
+
+                if((bytes = read(threadParams.socketfd,&matrix_size,sizeof(matrix_size)))<0){
+                    print_ts("Z: Recieve error Matrix_size\nTerminating...\n",logFD);
+                }
+
+                matrix = (int**) calloc(matrix_size,sizeof(int*));
+                for( i=0;i< matrix_size;i++){
+                    matrix[i] = (int*) calloc(matrix_size,sizeof(int));
+                }
+
+                for( i=0;i<matrix_size;i++){        
+                    for( j=0;j<matrix_size;j++){
+                        int temp;
+                        if((bytes = read(threadParams.socketfd,&temp,sizeof(temp)))<0){
+                            print_ts("Z: Recieve error Matrix\nTerminating...\n",logFD);
+                            exit(-1);
+                        }
+                        matrix[i][j]=temp;
+                   
+                    }
+
+                /* create connection to z */
+
+                struct sockaddr_in server_addr;
+                int zsocketfd;
+
+                if((zsocketfd = socket(AF_INET,SOCK_STREAM,0))<0){
+                    print_ts("Server Y, Pool2 has an issue to connect to ServerZ\nTerminating...\n",logFD);
+                    exit(-1);
+                }
+                memset(&server_addr, '0', sizeof(server_addr));
+                server_addr.sin_family = AF_INET;
+                server_addr.sin_port = htons(threadParams.connectionPort);
+                server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+               
+                if (connect(zsocketfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) != 0) {
+                    print_ts("connection with the server failed...\n",logFD);
+                    print_ts("\n Terminating... \n",logFD);
+                    exit(-1);
+                    }
+
+                /* Send Server Z */
+                if(write(zsocketfd, &client_id , sizeof(client_id)) < 0){
+                    print_ts("ID Send failed\n",logFD);
+                    print_ts("\n Terminating... \n",logFD);
+                    exit(-1);
+                }
+
+                if(write(zsocketfd, &matrix_size , sizeof(matrix_size)) < 0){
+                    print_ts("ID Send failed\n",logFD);
+                    print_ts("\n Terminating... \n",logFD);
+                    exit(-1);
+                }
+
+                for(i=0;i<matrix_size;i++){
+                    for(j=0;j<matrix_size;j++){
+                        int temp=matrix[i][j];
+                        if(write(zsocketfd,&temp,sizeof(temp))<0){
+                            print_ts("Matrix send from Y to Z failed\n",logFD);
+                            print_ts("Terminating\n",logFD);
+                            exit(-1);
+                        }
+                    }
+                }
+                /* get server z response */ 
+                if((bytes = read(zsocketfd,&response,sizeof(response))) < 0){
+                    print_ts("Recieve Failed\nTerminating...\n",logFD);
+                    exit(-1);
+                }
+
+                /*return clientX response */    
+                if(write(threadParams.socketfd, &response , sizeof(response)) < 0){
+                    print_ts("ID Send failed\n",logFD);
+                    print_ts("\n Terminating... \n",logFD);
+                    exit(-1);
+                }
+                
+                pthread_mutex_lock(&main_mutex);
+                pool2_full--;
+                pthread_mutex_unlock(&main_mutex);
+                
+                for( i=0;i<matrix_size;i++){
+                    free(matrix[i]);
+                }
+                free(matrix);
+
+                close(zsocketfd);
+            }   
+
+            close(threadParams.socketfd);
+            pthread_mutex_lock(&main_mutex);
+            pool2_full--;
+            pthread_mutex_unlock(&main_mutex);
+
+        }
+       
     }
+
+
+    return 0;
 }

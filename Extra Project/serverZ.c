@@ -36,8 +36,8 @@ typedef struct threadPool_t{
     int full;
     int status;
     int socketfd;
-   //pthread_mutex_t mutex;
-   // pthread_cond_t cond;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
 }threadPool_t;
 
 
@@ -233,9 +233,25 @@ int main(int argc, char** argv){
 
     /* Clean the mess */
 
-    /*for(i =0 ;i<pool_size;i++){
+   for(i=0;i<pool_size;i++){
+        fprintf(stderr,"Thread %d Reached cleaning\n",i);
+
+        pthread_mutex_lock(&threadParams[i].mutex);
+        fprintf(stderr,"Thread %d mutex locked\n",i); 
+
+        pthread_cond_signal(&threadParams[i].cond);
+        fprintf(stderr,"Thread %d cond signal sent\n",i);
+
+        pthread_mutex_unlock(&threadParams[i].mutex);
+        fprintf(stderr,"Thread %d mutex unlocked\n",i);
+
         pthread_join(pool[i],NULL);
-    }*/
+        fprintf(stderr,"Thread %d joined\n",i);
+
+        pthread_mutex_destroy(&threadParams[i].mutex);
+        pthread_cond_destroy(&threadParams[i].cond);
+       
+    }
 
     free(pool);
     free(threadParams);
@@ -299,15 +315,15 @@ void threadPool_init(){
         threadParams[i].full = 0;
         threadParams[i].socketfd=0;
         
-       /* if(pthread_mutex_init(&threadParams[i].mutex,NULL)!=0){								// initialize mutex and condition variables
+        if(pthread_mutex_init(&threadParams[i].mutex,NULL)!=0){								// initialize mutex and condition variables
 			print_ts("Z: mutex initialize failed!\nTerminating...\n",logFD);
 			exit(-1);
 		}
 
         if(pthread_cond_init(&threadParams[i].cond,NULL)!=0){
 			print_ts("Z: condtion variable initialize failed!\nTerminating...\n",logFD);
-			exit(EXIT_FAILURE);
-		}*/
+			exit(-1);
+		}
     }
 
 }
@@ -422,21 +438,33 @@ void *pool_func(void* arg){
         
        
        
+        pthread_mutex_lock(&threadParams.mutex);
         if(sig_int_flag == 1){
-                      
+            fprintf(stderr,"Thread %d got signal and threadMutex locked\n",threadParams.id);
+            pthread_cond_wait(&threadParams.cond,&threadParams.mutex);
+            
+            fprintf(stderr,"Thread %d get condition var signal \n",threadParams.id);
+            pthread_mutex_unlock(&threadParams.mutex);
+            fprintf(stderr,"Thread %d got signal and threadMutex unlocked\n",threadParams.id);
             return NULL;
         }
-       
+        fprintf(stderr,"Thread %d threadMutex locked\n",threadParams.id);
+        pthread_mutex_unlock(&threadParams.mutex);
+        fprintf(stderr,"Thread %d threadMutex unlocked\n",threadParams.id);
       
             
         pthread_mutex_lock(&main_mutex);
+        fprintf(stderr,"Thread %d mainMutex locked\n",threadParams.id);
         if( (threadParams.socketfd = dequeue()) == 0){
             pthread_cond_wait(&condition_var,&main_mutex);
+            fprintf(stderr,"Thread %d dequeued a connection\n",threadParams.id);
             threadParams.socketfd = dequeue();
         }
         pool_full++;
         pthread_mutex_unlock(&main_mutex);
-               
+        fprintf(stderr,"Thread %d mainMutex unlocked\n",threadParams.id);   
+
+
         if(sig_int_flag==0){
 
             int i=0,j=0;
