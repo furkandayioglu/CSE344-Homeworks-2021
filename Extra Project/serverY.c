@@ -36,23 +36,17 @@
 
 typedef struct threadPoolY_t{
     int id;
-    int full;
-    int status;
+    
     int socketfd;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
+    
     
 }threadPoolY_t;
 
 typedef struct threadPoolZ_t{
-    int id;
-    int status;
-    int full;
-    int socketfd;
-    //int zsocketfd;
+    int id;   
+    int socketfd;   
     int connectionPort;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
+   
 
 }threadPoolZ_t;
 
@@ -343,10 +337,6 @@ int main(int argc, char** argv){
         pthread_join(pool1[i],NULL);
         //fprintf(stderr,"Thread %d joined\n",i);
 
-        pthread_mutex_destroy(&threadParamsY[i].mutex);
-        //fprintf(stderr,"Thread %d mutex destroyed\n",i);
-        pthread_cond_destroy(&threadParamsY[i].cond);
-        //fprintf(stderr,"Thread %d cond var destroyed\n",i);
     }
 
     for(i=0;i<pool2_size;i++){
@@ -364,10 +354,7 @@ int main(int argc, char** argv){
         pthread_join(pool2[i],NULL);
         //fprintf(stderr,"Thread %d joined\n",i);
 
-        pthread_mutex_destroy(&threadParamsZ[i].mutex);
-        //fprintf(stderr,"Thread %d mutex destroyed\n",i);
-        pthread_cond_destroy(&threadParamsZ[i].cond);
-        //fprintf(stderr,"Thread %d cond var destroyed\n",i);
+     
     }
 
     free(pool1);
@@ -513,33 +500,17 @@ int dequeue(){
 void threadParams_init(){
     for(int i=0;i<pool1_size;i++){
         threadParamsY[i].id=i;
-        threadParamsY[i].status=0;
-        threadParamsY[i].full = 0;
+       
         threadParamsY[i].socketfd=0;
-        if(pthread_mutex_init(&threadParamsY[i].mutex,NULL)!=0){								// initialize mutex and condition variables
-			print_ts("Mutex initialize failed!!!. Terminating...",logFD);
-			exit(-1);
-		}
-        if(pthread_cond_init(&threadParamsY[i].cond,NULL)!=0){								// initialize mutex and condition variables
-			print_ts("Condition Variable initialize failed!!!. Terminating...",logFD);
-			exit(-1);
-		}
+       
     }
 
     for(int i=0;i<pool2_size;i++){
         threadParamsZ[i].id=i;
-        threadParamsZ[i].status=0;
-        threadParamsZ[i].full = 0;
+       
         threadParamsZ[i].socketfd=0;
         threadParamsZ[i].connectionPort = port+1;
-        if(pthread_mutex_init(&threadParamsZ[i].mutex,NULL)!=0){								// initialize mutex and condition variables
-			print_ts("Mutex initialize failed!!!. Terminating...",logFD);
-			exit(-1);
-		}
-         if(pthread_cond_init(&threadParamsZ[i].cond,NULL)!=0){								// initialize mutex and condition variables
-			print_ts("Condition Variable initialize failed!!!. Terminating...",logFD);
-			exit(-1);
-		}
+        
     }
 }
 

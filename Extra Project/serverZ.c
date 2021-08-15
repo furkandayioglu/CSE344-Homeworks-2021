@@ -33,11 +33,8 @@
 
 typedef struct threadPool_t{
     int id;
-    int full;
-    int status;
     int socketfd;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
+
 }threadPool_t;
 
 
@@ -249,10 +246,7 @@ int main(int argc, char** argv){
         pthread_join(pool[i],NULL);
         //fprintf(stderr,"Thread %d joined\n",i);
 
-        pthread_mutex_destroy(&threadParams[i].mutex);
-        //fprintf(stderr,"Thread %d mutex destroyed\n",i);
-        pthread_cond_destroy(&threadParams[i].cond);
-        //fprintf(stderr,"Thread %d cond var destroyed\n",i);
+        
     }
 
     free(pool);
@@ -318,19 +312,8 @@ void threadPool_init(){
 
     for(i=0;i<pool_size;i++){
         threadParams[i].id=i;
-        threadParams[i].status=0;
-        threadParams[i].full = 0;
-        threadParams[i].socketfd=0;
-        
-        if(pthread_mutex_init(&threadParams[i].mutex,NULL)!=0){								// initialize mutex and condition variables
-			print_ts("Z: mutex initialize failed!\nTerminating...\n",logFD);
-			exit(-1);
-		}
-
-        if(pthread_cond_init(&threadParams[i].cond,NULL)!=0){
-			print_ts("Z: condtion variable initialize failed!\nTerminating...\n",logFD);
-			exit(-1);
-		}
+        threadParams[i].socketfd=0;      
+       
     }
 
 }
