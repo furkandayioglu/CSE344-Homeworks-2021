@@ -183,11 +183,17 @@ int main(int argc, char** argv){
     }
 
     if(pool1_size<2 || pool2_size<2){
-        print_ts("Pool size must be greater than 1000.\n",2);
+        print_ts("Pool sizes must be greater or equal to 2.\n",2);
         print_ts("Terminating...\n",2);
         exit(-1);
     }
 
+
+    if(sleep_dur<0){
+        print_ts("Sleep duration cannot be negative.\n",2);
+        print_ts("Terminating...\n",2);
+        exit(-1);
+    }
 
     char port_a[10];
     char time_a[10];
@@ -321,6 +327,7 @@ int main(int argc, char** argv){
     /* clean the mess */
     kill(serverZ_pid,SIGINT);
 
+    
     for(i=0;i<pool1_size;i++){
         //fprintf(stderr,"Thread %d Reached cleaning\n",i);
 
@@ -332,7 +339,7 @@ int main(int argc, char** argv){
 
         //pthread_mutex_unlock(&threadParams[i].mutex);
         //fprintf(stderr,"Thread %d mutex unlocked\n",i);
-
+        pthread_cond_signal(&cond_pool1);
         pthread_join(pool1[i],NULL);
         //fprintf(stderr,"Thread %d joined\n",i);
 
@@ -353,7 +360,7 @@ int main(int argc, char** argv){
 
         //pthread_mutex_unlock(&threadParams[i].mutex);
         //fprintf(stderr,"Thread %d mutex unlocked\n",i);
-
+        pthread_cond_signal(&cond_pool2);
         pthread_join(pool2[i],NULL);
         //fprintf(stderr,"Thread %d joined\n",i);
 
@@ -608,11 +615,11 @@ void* pool1_func(void* arg){
     
     int bytes = 0;
     threadPoolY_t threadParams = *((threadPoolY_t*)arg);
-    while(!sig_int_flag){
+    while(1){
         
-        /* if(sig_int_flag==1){
+        if(sig_int_flag==1){
             break;
-        }*/
+        }
 
         pthread_mutex_lock(&main_mutex);        
         if( (threadParams.socketfd = dequeue()) == 0){

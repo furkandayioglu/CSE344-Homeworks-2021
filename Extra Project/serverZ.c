@@ -244,6 +244,7 @@ int main(int argc, char** argv){
 
         //pthread_mutex_unlock(&threadParams[i].mutex);
         //fprintf(stderr,"Thread %d mutex unlocked\n",i);
+        pthread_cond_signal(&condition_var);
 
         pthread_join(pool[i],NULL);
         //fprintf(stderr,"Thread %d joined\n",i);
@@ -440,11 +441,11 @@ void *pool_func(void* arg){
     
     int bytes=0; 
   
-    while(!sig_int_flag){
+    while(1){
 
-        /*if(sig_int_flag == 1){          
+        if(sig_int_flag == 1){          
             return NULL;
-        }*/
+        }
        
         pthread_mutex_lock(&main_mutex);
         //fprintf(stderr,"Thread %d mainMutex locked\n",threadParams.id);
